@@ -33,6 +33,7 @@ from app.ml.anomaly_detector import (AnomalyDetector, extract_events,
                                       score_rules_only)
 from app.ml.physics_rules import agreement_report
 from app.models.schemas import ReplayRequest
+from app.replay.history_serve import build_history_comparison
 from app.replay.replay_engine import ReplayEngine, FRAME_COLS
 
 logging.basicConfig(level=logging.INFO,
@@ -227,6 +228,39 @@ async def ws_replay(ws: WebSocket):
                     "events": [], "validation": {},
                 })
                 engine = of1.LiveEngine(status["session_key"], chosen)
+                stream_task = asyncio.create_task(_stream_live(ws, engine))
+
+            elif action == "start_history":
+                if stream_task:
+                    if engine:
+                        engine.stop()
+                    stream_task.cancel()
+                lap_reqs = msg.get("laps", [])[:config.MAX_DRIVERS]
+                if not lap_reqs:
+                    await ws.send_json({"type": "error",
+                                        "message": "No saved laps selected."})
+                    continue
+                if not database.is_available():
+                    await ws.send_json({"type": "error",
+                                        "message": "MongoDB is not running - "
+                                                   "history mode needs it."})
+                    continue
+                await ws.send_json({"type": "status",
+                                    "message": "Loading saved laps from "
+                                               "the database..."})
+                frames = [await database.load_lap_frames(
+                              r["year"], r["round"], r["session"],
+                              r["driver"], r["lap"]) for r in lap_reqs]
+                try:
+                    prepared = build_history_comparison(lap_reqs, frames)
+                except ValueError as exc:
+                    await ws.send_json({"type": "error",
+                                        "message": str(exc)})
+                    continue
+                await ws.send_json(prepared["meta"])
+                engine = ReplayEngine(prepared["scored_laps"],
+                                      msg.get("tick_rate_hz"))
+                # _stream_live streams without re-saving (already persisted)
                 stream_task = asyncio.create_task(_stream_live(ws, engine))
 
             elif action == "pause" and engine:

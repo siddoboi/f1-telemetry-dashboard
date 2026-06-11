@@ -79,6 +79,25 @@ async def save_lap_frames(year: int, rnd: int, session: str, driver: str,
         log.warning("Mongo write failed: %s", exc)
 
 
+async def load_lap_frames(year: int, rnd: int, session: str, driver: str,
+                          lap: int) -> list[dict]:
+    """Phase 3: read one saved lap's frames back, sorted by distance,
+    without touching FastF1. Returns [] when unavailable."""
+    if not _available:
+        return []
+    db = _client[config.MONGO_DB_NAME]
+    try:
+        cursor = db[config.TELEMETRY_COLLECTION].find(
+            {"meta.year": year, "meta.round": rnd, "meta.session": session,
+             "meta.driver": driver, "meta.lap": lap},
+            projection={"_id": 0, "ts": 0, "meta": 0},
+        ).sort("distance", 1)
+        return [doc async for doc in cursor]
+    except PyMongoError as exc:
+        log.warning("Mongo read failed: %s", exc)
+        return []
+
+
 async def get_saved_laps() -> list[dict]:
     """Distinct lap descriptors stored so far (history browser endpoint)."""
     if not _available:
