@@ -93,6 +93,22 @@ class AnomalyDetector:
         return feats
 
 
+def score_rules_only(comparison_df: pd.DataFrame) -> pd.DataFrame:
+    """Baseline OFF mode: no ML (the forest needs a baseline lap), so score
+    with the physics rules alone - same columns, honest provenance."""
+    feats = comparison_df.copy()
+    feats = physics_rules.apply_rules(feats)
+    rule_any = (feats["rule_lockup"] | feats["rule_wheelspin"]
+                | feats["rule_throttle_osc"]
+                | feats["rule_snap_lift"]).to_numpy()
+    feats["anomaly_score"] = np.where(rule_any, 0.8, 0.0)
+    feats["anomaly"] = rule_any
+    dilated = feats["rule_label"].ffill(limit=3).bfill(limit=3)
+    feats["anomaly_label"] = np.where(
+        feats["anomaly"], dilated.fillna("Rule-flagged anomaly"), None)
+    return feats
+
+
 def extract_events(scored: pd.DataFrame, driver: str) -> list[dict]:
     """Merge consecutive anomalous steps into events for the sidebar log."""
     events, in_evt = [], False
@@ -112,13 +128,15 @@ def extract_events(scored: pd.DataFrame, driver: str) -> list[dict]:
     if in_evt:
         events.append(_event(driver, start,
                              float(scored.iloc[-1]["distance"]), peak, labels))
-    # discard one-step blips (a single 5 m flag is usually noise)
-    events = [e for e in events if e["end_distance"] - e["start_distance"]
-              >= 2 * config.DISTANCE_STEP_M]
-    return _merge_nearby(events, gap_m=30.0)
+    # merge fragments within 30 m of each other FIRST (same braking zone),
+    # THEN drop whatever is still a one-step blip. Order matters: a genuine
+    # event fragmented into single 5 m flags must be merged before filtering.
+    events = _merge_nearby(events, gap_m=30.0)
+    return [e for e in events if e["end_distance"] - e["start_distance"]
+            >= 2 * config.DISTANCE_STEP_M]
 
 
-def _merge_nearby(events, gap_m=30.0):
+def _merge_nearby(events: list[dict], gap_m: float = 30.0) -> list[dict]:
     """Merge events within gap_m metres of each other (same driver)."""
     if not events:
         return []
@@ -127,8 +145,8 @@ def _merge_nearby(events, gap_m=30.0):
         if (ev["driver"] == current["driver"]
                 and ev["start_distance"] - current["end_distance"] <= gap_m):
             current["end_distance"] = ev["end_distance"]
-            current["peak_score"] = max(current["peak_score"], ev["peak_score"])
-            # keep the more specific label
+            current["peak_score"] = max(current["peak_score"],
+                                        ev["peak_score"])
             if ev["label"] != "Atypical telemetry pattern":
                 current["label"] = ev["label"]
                 current["diagnosis"] = ev["diagnosis"]

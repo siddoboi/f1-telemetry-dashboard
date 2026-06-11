@@ -192,10 +192,6 @@ def driver_session_stats(year: int, rnd: int, session: str,
             stats["top_speed_kmh"] = None
         stats["laps_completed"] = int(len(valid))
         stats["pit_stops"] = int(laps["PitInTime"].notna().sum())
-
-    # FastF1 returns brake as boolean 0/1 in some sessions — normalize to 0–100
-    if df["brake"].max() <= 1.0:
-        df["brake"] = df["brake"] * 100
     return stats
 
 
@@ -241,6 +237,8 @@ def build_comparison(year: int, rnd: int, session: str, drivers: list[str],
             base = {"driver": drv,
                     "lap_time": _fmt_laptime(pb["LapTime"]),
                     "df": lap_to_distance_grid(pb)}
+        elif baseline_mode == "off":
+            base = None          # no baseline traces, rules-only anomalies
         else:
             base = shared_baseline
 

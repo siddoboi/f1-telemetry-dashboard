@@ -17,7 +17,7 @@ class ReplayRequest(BaseModel):
     session: str
     drivers: list[str] = Field(min_length=1, max_length=5)   # e.g. ["VER","NOR"]
     lap_numbers: Optional[dict[str, int]] = None   # driver -> lap, None = best
-    baseline_mode: Literal["session_optimal", "personal_best"] = "session_optimal"
+    baseline_mode: Literal["session_optimal", "personal_best", "off"] = "session_optimal"
     tick_rate_hz: Optional[float] = None     # override server default
 
 

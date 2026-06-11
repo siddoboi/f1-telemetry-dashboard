@@ -20,7 +20,8 @@ from app import config
 log = logging.getLogger(__name__)
 
 FRAME_COLS = ["distance", "speed", "rpm", "gear", "throttle", "brake",
-              "drs", "time_s", "anomaly_score", "anomaly", "anomaly_label"]
+              "drs", "time_s", "anomaly_score", "anomaly", "anomaly_label",
+              "x", "y"]
 
 
 class ReplayEngine:

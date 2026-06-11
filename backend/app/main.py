@@ -29,7 +29,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
 from app.data import database, fastf1_loader as f1, openf1_client as of1
-from app.ml.anomaly_detector import AnomalyDetector, extract_events
+from app.ml.anomaly_detector import (AnomalyDetector, extract_events,
+                                      score_rules_only)
 from app.ml.physics_rules import agreement_report
 from app.models.schemas import ReplayRequest
 from app.replay.replay_engine import ReplayEngine, FRAME_COLS
@@ -130,6 +131,20 @@ def _prepare(req: ReplayRequest) -> dict:
     scored_laps = {}
 
     for drv, info in comp["drivers"].items():
+        if info["baseline"] is None:                      # baseline OFF
+            scored = score_rules_only(info["comparison"])
+            scored_laps[drv] = scored
+            meta["events"].extend(extract_events(scored, drv))
+            meta["drivers"][drv] = {
+                "meta": info["meta"],
+                "lap_number": info["lap_number"],
+                "lap_time": info["lap_time"],
+                "baseline_driver": None,
+                "baseline_lap_time": None,
+                "baseline": {},                            # no traces
+            }
+            continue
+
         det = AnomalyDetector().fit(info["baseline"]["df"])
         scored = det.score(info["comparison"], info["baseline"]["df"])
         scored_laps[drv] = scored

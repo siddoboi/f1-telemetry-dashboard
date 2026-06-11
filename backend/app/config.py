@@ -5,9 +5,6 @@ variable of the same name (see backend/.env.example).
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
-load_dotenv()
-
 # ---------------------------------------------------------------- paths ----
 BASE_DIR = Path(__file__).resolve().parent.parent          # backend/
 FASTF1_CACHE_DIR = Path(os.getenv("FASTF1_CACHE_DIR", BASE_DIR / "ff1_cache"))
@@ -30,7 +27,7 @@ LIVE_POLL_INTERVAL_S = float(os.getenv("LIVE_POLL_INTERVAL_S", "1.5"))
 # ------------------------------------------------------------------- ml ----
 IF_N_ESTIMATORS = int(os.getenv("IF_N_ESTIMATORS", "200"))
 IF_CONTAMINATION = float(os.getenv("IF_CONTAMINATION", "0.03"))
-ANOMALY_THRESHOLD = float(os.getenv("ANOMALY_THRESHOLD", "0.65"))  # 0..1 score
+ANOMALY_THRESHOLD = float(os.getenv("ANOMALY_THRESHOLD", "0.72"))  # 0..1 score
 
 # ----------------------------------------------------------------- cors ----
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
