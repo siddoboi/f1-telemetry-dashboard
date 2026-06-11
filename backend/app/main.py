@@ -28,7 +28,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
-from app.data import database, fastf1_loader as f1
+from app.data import database, fastf1_loader as f1, openf1_client as of1
 from app.ml.anomaly_detector import AnomalyDetector, extract_events
 from app.ml.physics_rules import agreement_report
 from app.models.schemas import ReplayRequest
@@ -86,14 +86,46 @@ async def history():
     return await database.get_saved_laps()
 
 
+@app.get("/api/live/status")
+async def live_status():
+    """Is an F1 session running right now (via OpenF1)?"""
+    ses = await of1.live_session()
+    if not ses:
+        return {"live": False}
+    return {"live": True,
+            "session_key": ses["session_key"],
+            "session_name": ses.get("session_name"),
+            "circuit": ses.get("circuit_short_name"),
+            "country": ses.get("country_name")}
+
+
+@app.get("/api/live/drivers/{session_key}")
+async def live_drivers(session_key: int):
+    return await of1.session_drivers(session_key)
+
+
+@app.get("/api/profile/{year}/{rnd}/{session}/{driver}")
+async def profile(year: int, rnd: int, session: str, driver: str):
+    """Driver profile card: FastF1 performance stats + OpenF1 headshot/bio."""
+    stats = await run_in_threadpool(f1.driver_session_stats, year, rnd,
+                                    session, driver)
+    bio = await of1.headshot_for(year, driver)
+    if bio:
+        stats["headshot_url"] = bio.get("headshot_url")
+        stats["country"] = bio.get("country")
+        stats.setdefault("full_name", bio.get("name"))
+    return stats
+
+
 # ------------------------------------------------------------ WebSocket ----
 def _prepare(req: ReplayRequest) -> dict:
     """Blocking heavy lifting (FastF1 download + ML). Runs in a threadpool."""
     comp = f1.build_comparison(req.year, req.round, req.session, req.drivers,
                                req.lap_numbers, req.baseline_mode)
-    meta = {"type": "meta", "baseline_mode": req.baseline_mode,
+    meta = {"type": "meta", "mode": "replay", "baseline_mode": req.baseline_mode,
             "baseline_owner": comp.get("baseline_owner"),
             "baseline_lap_time": comp.get("baseline_lap_time"),
+            "track": comp.get("track"),
             "drivers": {}, "events": [], "validation": {}}
     scored_laps = {}
 
@@ -152,6 +184,36 @@ async def ws_replay(ws: WebSocket):
                 stream_task = asyncio.create_task(
                     _stream(ws, engine, req, prepared["scored_laps"]))
 
+            elif action == "start_live":
+                if stream_task:
+                    if engine:
+                        engine.stop()
+                    stream_task.cancel()
+                status = await of1.live_session()
+                if not status:
+                    await ws.send_json({"type": "error",
+                                        "message": "No live F1 session right "
+                                                   "now. Use replay mode."})
+                    continue
+                all_drivers = await of1.session_drivers(status["session_key"])
+                wanted = set(msg.get("drivers", []))
+                chosen = [d for d in all_drivers if d["code"] in wanted]
+                chosen = chosen[:config.MAX_DRIVERS]
+                if not chosen:
+                    await ws.send_json({"type": "error",
+                                        "message": "Requested drivers not in "
+                                                   "the live session."})
+                    continue
+                await ws.send_json({
+                    "type": "meta", "mode": "live",
+                    "session_name": status.get("session_name"),
+                    "circuit": status.get("circuit"),
+                    "drivers": {d["code"]: {"meta": d} for d in chosen},
+                    "events": [], "validation": {},
+                })
+                engine = of1.LiveEngine(status["session_key"], chosen)
+                stream_task = asyncio.create_task(_stream_live(ws, engine))
+
             elif action == "pause" and engine:
                 engine.pause()
             elif action == "resume" and engine:
@@ -171,6 +233,14 @@ async def ws_replay(ws: WebSocket):
             await ws.send_json({"type": "error", "message": str(exc)})
         except RuntimeError:
             pass
+
+
+async def _stream_live(ws: WebSocket, engine) -> None:
+    try:
+        async for frame in engine.frames():
+            await ws.send_json(frame)
+    except (WebSocketDisconnect, RuntimeError, asyncio.CancelledError):
+        engine.stop()
 
 
 async def _stream(ws: WebSocket, engine: ReplayEngine,
