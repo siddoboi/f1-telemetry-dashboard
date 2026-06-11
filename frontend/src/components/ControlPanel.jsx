@@ -1,25 +1,47 @@
-// Cascading selector chain: Year -> Event -> Session -> Drivers -> Laps ->
-// Baseline. Each step loads its options from the API when its parent changes.
+// Cascading selector chain: Year -> Event -> Session -> Drivers (max 5) ->
+// Laps -> Baseline. Plus live mode: if OpenF1 reports an active session, a
+// GO LIVE section appears with its own driver picker.
 import { useEffect, useState } from 'react';
-import { getSchedule, getSessions, getDrivers, getLaps } from '../api/client';
+import { api, getSchedule, getSessions, getDrivers, getLaps } from '../api/client';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018];
-const MAX_DRIVERS = 2; // raise this when scaling to the full grid
+const MAX_DRIVERS = 5;
 
-export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
-                                       running, paused }) {
+export default function ControlPanel({ onStart, onStartLive, onPause,
+                                       onResume, onSpeed, running, paused,
+                                       mode }) {
   const [year, setYear] = useState(2025);
   const [events, setEvents] = useState([]);
   const [round, setRound] = useState('');
   const [sessions, setSessions] = useState([]);
   const [session, setSession] = useState('');
   const [drivers, setDrivers] = useState([]);
-  const [selected, setSelected] = useState([]);          // driver codes
-  const [lapsByDriver, setLapsByDriver] = useState({});  // code -> lap list
-  const [lapChoice, setLapChoice] = useState({});        // code -> lap number|''
+  const [selected, setSelected] = useState([]);
+  const [lapsByDriver, setLapsByDriver] = useState({});
+  const [lapChoice, setLapChoice] = useState({});
   const [baseline, setBaseline] = useState('session_optimal');
   const [speed, setSpeedLocal] = useState(1);
   const [loading, setLoading] = useState('');
+  const [live, setLive] = useState(null);            // /api/live/status
+  const [liveDrivers, setLiveDrivers] = useState([]);
+  const [liveSelected, setLiveSelected] = useState([]);
+
+  // poll live status every 60 s
+  useEffect(() => {
+    let alive = true;
+    const check = () => api('/live/status')
+      .then((s) => alive && setLive(s.live ? s : null))
+      .catch(() => alive && setLive(null));
+    check();
+    const id = setInterval(check, 60000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
+  useEffect(() => {
+    if (!live) { setLiveDrivers([]); setLiveSelected([]); return; }
+    api(`/live/drivers/${live.session_key}`)
+      .then(setLiveDrivers).catch(() => {});
+  }, [live]);
 
   useEffect(() => {
     setEvents([]); setRound('');
@@ -40,14 +62,14 @@ export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
       .catch((e) => setLoading(`Failed: ${e.message}`));
   }, [year, round, session]);
 
+  const toggle = (list, setList) => (code) => {
+    if (list.includes(code)) setList(list.filter((c) => c !== code));
+    else if (list.length < MAX_DRIVERS) setList([...list, code]);
+  };
+
   const toggleDriver = async (code) => {
-    if (selected.includes(code)) {
-      setSelected(selected.filter((c) => c !== code));
-      return;
-    }
-    if (selected.length >= MAX_DRIVERS) return;
-    setSelected([...selected, code]);
-    if (!lapsByDriver[code]) {
+    toggle(selected, setSelected)(code);
+    if (!selected.includes(code) && !lapsByDriver[code]) {
       const laps = await getLaps(year, round, session, code).catch(() => []);
       setLapsByDriver((p) => ({ ...p, [code]: laps }));
     }
@@ -70,7 +92,29 @@ export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
 
   return (
     <aside className="control-panel">
-      <h1 className="brand">PIT WALL<span className="brand-sub">driver consistency</span></h1>
+      {live && (
+        <div className="live-box">
+          <span className="live-badge">● LIVE NOW</span>
+          <p className="live-name">{live.session_name} · {live.circuit}</p>
+          {liveDrivers.length > 0 && (
+            <div className="driver-grid">
+              {liveDrivers.map((d) => (
+                <button key={d.code}
+                        className={`driver-chip ${liveSelected.includes(d.code) ? 'on' : ''}`}
+                        style={{ '--team': d.color }}
+                        onClick={() => toggle(liveSelected, setLiveSelected)(d.code)}>
+                  {d.code}
+                </button>
+              ))}
+            </div>
+          )}
+          <button className="start-btn live"
+                  disabled={!liveSelected.length}
+                  onClick={() => onStartLive(liveSelected)}>
+            GO LIVE (≈30 s delay)
+          </button>
+        </div>
+      )}
 
       <label className="field">Season
         <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
@@ -103,13 +147,11 @@ export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
           <span>Drivers <em>(max {MAX_DRIVERS})</em></span>
           <div className="driver-grid">
             {drivers.map((d) => (
-              <button
-                key={d.code}
-                className={`driver-chip ${selected.includes(d.code) ? 'on' : ''}`}
-                style={{ '--team': d.color }}
-                onClick={() => toggleDriver(d.code)}
-                title={`${d.name} · ${d.team}`}
-              >
+              <button key={d.code}
+                      className={`driver-chip ${selected.includes(d.code) ? 'on' : ''}`}
+                      style={{ '--team': d.color }}
+                      onClick={() => toggleDriver(d.code)}
+                      title={`${d.name} · ${d.team}`}>
                 {d.code}
               </button>
             ))}
@@ -119,11 +161,9 @@ export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
 
       {selected.map((code) => (
         <label className="field" key={code}>Lap · {code}
-          <select
-            value={lapChoice[code] ?? ''}
-            onChange={(e) =>
-              setLapChoice((p) => ({ ...p, [code]: e.target.value }))}
-          >
+          <select value={lapChoice[code] ?? ''}
+                  onChange={(e) =>
+                    setLapChoice((p) => ({ ...p, [code]: e.target.value }))}>
             <option value="">Fastest lap</option>
             {(lapsByDriver[code] || []).map((l) => (
               <option key={l.lap_number} value={l.lap_number}>
@@ -150,10 +190,10 @@ export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
       </div>
 
       <button className="start-btn" disabled={!ready} onClick={start}>
-        {running ? 'Restart replay' : 'Start replay'}
+        {running && mode === 'replay' ? 'Restart replay' : 'Start replay'}
       </button>
 
-      {running && (
+      {running && mode === 'replay' && (
         <div className="replay-controls">
           <button onClick={paused ? onResume : onPause}>
             {paused ? 'Resume' : 'Pause'}
