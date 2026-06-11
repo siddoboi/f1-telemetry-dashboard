@@ -238,8 +238,29 @@ channel normalised (FastF1 0/1 → 0–100 %), `ANOMALY_THRESHOLD=0.72`,
 | 1 | 2-driver replay, IF anomaly engine, synced charts, event log | done |
 | 2 | 5 drivers, nav tabs, zoom minimap, track map, live mode | done |
 | 2.5 | Session tab, profile overlay, per-driver GPS dots, baseline off, detection tuning | this repo |
-| 3 | History browser II: re-serve saved laps from MongoDB without FastF1 | next |
+| 3 | History browser II: re-serve saved laps from MongoDB without FastF1 | this repo |
 | 4 | Cloud deploy: containerised backend, static frontend, MongoDB Atlas | stretch |
+
+## 5c. Phase 3 - history re-serve
+
+The History tab is a multi-select browser over every lap persisted to the
+MongoDB time-series collection. Pick up to 5 saved laps from the **same
+Grand Prix** and "Load comparison" replays them instantly - the frames come
+straight from the database, FastF1 is never touched.
+
+How it works (`backend/app/replay/history_serve.py`):
+- the fastest selected lap becomes the on-the-fly baseline (the original
+  session-optimal lap isn't stored);
+- stored `anomaly_score` values are reused and events re-extracted from
+  them; physics rules re-run to recover the event labels (they need no
+  baseline);
+- the same driver can be selected twice (e.g. VER L67 vs VER L69) - chart
+  keys become `VER·L67` / `VER·L69`;
+- driver colors come from a static team map
+  (`backend/app/data/team_colors.py`) since metadata isn't stored;
+- saved laps carry no GPS, so the Track Map shows its empty state, and the
+  Session/profile views need a FastF1 session, so they stay empty in
+  history mode. Both are stated limitations, not bugs.
 
 ## 6. Troubleshooting
 
