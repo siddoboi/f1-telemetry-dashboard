@@ -24,11 +24,18 @@ export class ReplayClient {
   }
 
   start(request) {
+    this._open({ action: 'start', ...request });
+  }
+
+  startLive(drivers) {
+    this._open({ action: 'start_live', drivers });
+  }
+
+  _open(firstMessage) {
     this.stop();
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
     this.ws = new WebSocket(`${proto}://${window.location.host}/ws/replay`);
-    this.ws.onopen = () =>
-      this.ws.send(JSON.stringify({ action: 'start', ...request }));
+    this.ws.onopen = () => this.ws.send(JSON.stringify(firstMessage));
     this.ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       const h = this.handlers;
