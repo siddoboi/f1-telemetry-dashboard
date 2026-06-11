@@ -1,0 +1,14 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+backend/ff1_cache/
+backend/.env
+
+# node
+frontend/node_modules/
+frontend/dist/
+
+# os/editor
+.DS_Store
+.vscode/
