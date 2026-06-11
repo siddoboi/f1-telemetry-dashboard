@@ -1,279 +1,160 @@
-# F1 Real-Time Telemetry & Driver Consistency Dashboard
+# 🏎️ PIT WALL — F1 Real-Time Telemetry & Driver Consistency Dashboard
 
-A full-stack application that streams real Formula 1 telemetry — historical
-laps replayed through a real-time pipeline, or OpenF1's delayed live feed
-during race weekends — compares each driver against a baseline lap **indexed
-by track distance**, and uses an unsupervised **Isolation Forest** to flag
-driving anomalies (lock-ups, wheelspin, throttle instability, mid-corner
-snaps) with automated text diagnoses.
+A full-stack motorsport analytics platform that streams real Formula 1 telemetry —
+historical laps replayed through a real-time pipeline, OpenF1's delayed live feed
+during race weekends, or instantly from a local database — compares drivers against
+a baseline lap **indexed by track distance**, and uses an unsupervised
+**Isolation Forest** to flag driving anomalies (tyre lock-ups, wheelspin, throttle
+instability, mid-corner snaps) with automated text diagnoses.
 
-```
-FastF1 (historical)          OpenF1 (live, ~30 s delay)
-   └─> Distance-grid alignment    └─> Polling client + distance integration
-        └─> Isolation Forest + physics-rule validation   (live: rules only)
-             └─> Replay/Live engine -> FastAPI WebSocket
-                  └─> React UI: Telemetry · Track Map · Drivers · History
-                       └─> MongoDB time-series persistence (optional)
-```
-
-**Honest framing:** there is no public live F1 feed outside of ~24 race
-weekends a year, so this system uses *historical replay through a real-time
-processing architecture*. The backend pipeline (WebSocket streaming, per-frame
-ML scoring, live charts) is identical to what a true live feed would require —
-only the data source is a replay engine with a configurable tick rate.
+**Stack:** FastAPI · WebSockets · scikit-learn · FastF1 · OpenF1 · MongoDB Time Series · React · Recharts · Vite
 
 ---
 
-## 1. Prerequisites (installing from absolute zero)
+## Why distance, not time?
 
-You need four things: **Python 3.11+**, **Node.js 18+ (LTS)**, **Git**, and
-optionally **MongoDB Community Server** (the app runs without it; you only
-lose lap-history persistence).
+Comparing two laps by elapsed time is meaningless — a slower driver is at a
+*different corner* at the same `t`. Every channel here is resampled onto a uniform
+5 m distance grid, so "VER at 1,250 m" and "LEC at 1,250 m" are the same piece of
+track. Distance is the X-axis everywhere: charts, anomaly events, zoom, track map.
 
-### Windows
+## Architecture
 
-1. **Python** — download from https://www.python.org/downloads/ (3.11 or 3.12).
-   During install, tick **"Add python.exe to PATH"**. Verify:
-   ```
-   python --version
-   ```
-2. **Node.js** — download the LTS installer from https://nodejs.org/. Verify:
-   ```
-   node --version
-   npm --version
-   ```
-3. **Git** — https://git-scm.com/download/win, default options. Verify:
-   ```
-   git --version
-   ```
-4. **MongoDB (optional)** — https://www.mongodb.com/try/download/community
-   → Windows MSI → "Complete" → keep **"Install MongoDB as a Service"**
-   checked. It then runs automatically on `mongodb://localhost:27017`.
-
-### macOS
-
-```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install python@3.12 node git
-brew tap mongodb/brew && brew install mongodb-community   # optional
-brew services start mongodb-community                      # optional
+```
+FastF1 (historical)     OpenF1 (live, ~30 s delay)     MongoDB (saved laps)
+   │                        │                              │
+   ▼                        ▼                              ▼
+Distance-grid alignment   Polling client +            history_serve.py
+(5 m steps, brake         distance integration        (re-serve, no FastF1)
+ normalisation, GPS)          │                            │
+   │                          │                            │
+   ▼                          ▼                            ▼
+Isolation Forest fitted   Incremental physics        Stored scores re-used,
+on baseline lap +         rules (no baseline         events re-extracted
+physics-rule validation   exists mid-session)
+   └──────────────┬───────────┴────────────────────────────┘
+                  ▼
+        Replay engine (10 Hz, pause/speed) → FastAPI WebSocket
+                  ▼
+        React dashboard: Telemetry · Track Map · Session · History
 ```
 
-### Ubuntu / Debian Linux
+## Features
+
+**Telemetry analysis**
+- Up to **5 drivers** compared simultaneously, distance-synchronized
+- Channel views: Speed · Throttle · Brake · RPM · Gear · DRS
+- **STACKED** (drivers overlaid) / **SEPARATE** (one chart per driver) toggle
+- Baseline modes: **Session optimal** · **Personal best** · **Off** (rules-only anomalies)
+- Editing-software **timeline zoom**: minimap scrubber + Ctrl+scroll, synced across all charts
+
+**ML anomaly engine**
+- Isolation Forest trained on the baseline lap, scoring the comparison lap on
+  baseline-delta + derivative features
+- Validated against four independent physics rules (lock-up, wheelspin, throttle
+  oscillation, snap lift) — agreement metrics shown in the UI
+- Anomaly fragments merged across 30 m, then blip-filtered; events carry
+  programmatic text diagnoses
+- Tuned on real data (2024 Bahrain GP Qualifying, VER vs LEC)
+
+**Views**
+- **Track Map** — SVG circuit from baseline GPS; every driver's dot moves on its
+  *own* GPS position; anomaly markers are clickable
+- **Session** — lap-time progression chart + clickable lap film strip; click any
+  lap to reload the replay with it
+- **History** — every completed replay persists to a MongoDB time-series
+  collection; select up to 5 saved laps and replay them **instantly, offline,
+  without FastF1**
+- **Driver profile overlay** — hover a driver chip: headshot, grid/finish,
+  fastest lap, top speed, pit stops
+- **Live mode** — when a real F1 session is running, stream it via OpenF1
+  (~30 s delay, stated honestly in the UI)
+
+## Quick start
+
+Prerequisites: **Python 3.11+**, **Node.js 18+**, optionally **MongoDB Community**
+(the app runs without it; you lose lap persistence). Full from-zero install
+instructions for Windows / macOS / Linux are in [`docs/SETUP.md`](docs/SETUP.md).
 
 ```bash
-sudo apt update
-sudo apt install -y python3 python3-venv python3-pip nodejs npm git
-# MongoDB (optional): follow https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/
-```
-
----
-
-## 2. Project setup
-
-### 2.1 Backend
-
-```bash
+# Backend (terminal 1)
 cd backend
-
-# create + activate a virtual environment
 python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-# optional: copy env template (defaults work out of the box)
-copy .env.example .env        # Windows
-cp .env.example .env          # macOS/Linux
-
-# run the API
 uvicorn app.main:app --reload --port 8000
-```
 
-You should see `Uvicorn running on http://127.0.0.1:8000`. Open
-http://localhost:8000/api/health — it returns
-`{"status":"ok","mongo":true|false}`.
-
-> **First-load warning:** the first time you open a session, FastF1 downloads
-> hundreds of MB of telemetry from the F1 servers. This takes **2–10 minutes**
-> depending on your connection. It is cached in `backend/ff1_cache/` and is
-> near-instant afterwards. Pre-warm the cache before any demo.
-
-### 2.2 Frontend
-
-In a **second terminal**:
-
-```bash
+# Frontend (terminal 2)
 cd frontend
 npm install
-npm run dev
+npm run dev                      # → http://localhost:5173
 ```
 
-Open http://localhost:5173. The Vite dev server proxies `/api` and `/ws` to
-the backend, so no CORS or host configuration is needed in development.
+First session load downloads telemetry from F1's servers (2–10 min) and is cached
+in `backend/ff1_cache/` afterwards. Pre-warm the cache before demos.
 
-### 2.3 First run, end to end
+**First run:** Season `2024` → `R1 Bahrain` → `Q` → pick `VER` + `LEC` →
+baseline `Session optimal` → **Start replay**.
 
-1. Season → `2025`, Grand Prix → any completed event, Session → `Q`
-2. Wait for drivers to load (first time = telemetry download)
-3. Pick 2 drivers (e.g. teammates), leave laps on "Fastest lap"
-4. Baseline → "Session optimal", press **Start replay**
-5. Watch the charts draw in at 10 Hz; anomaly bands appear in team colors;
-   click a band to open its diagnosis in the right-hand event log.
+## Detection tuning (validated on real data)
 
----
-
-## 3. How the core pieces work
-
-### Distance alignment (`fastf1_loader.py`)
-Raw telemetry is irregularly sampled in time. Comparing two laps by time is
-meaningless (a slower driver is at a *different corner* at the same t).
-`lap_to_distance_grid()` interpolates every channel onto a uniform grid of
-one sample every 5 m, so "VER at 1 250 m" and "NOR at 1 250 m" are the same
-piece of track. Distance is the X-axis everywhere.
-
-### Anomaly detection (`ml/anomaly_detector.py`)
-Unsupervised: an Isolation Forest is fitted on the **baseline lap's** feature
-vectors (assumed nominal driving), then scores the comparison lap. Features
-combine raw state (throttle, brake), derivatives along distance (how violently
-speed/RPM/throttle change), and deltas vs the baseline at the same distance.
-The decision score is calibrated to a 0–1 "anomaly probability"; ≥ 0.65 flags.
-
-### Validation (`ml/physics_rules.py`)
-The forest has no labels, so we judge it against four independent physics
-rules (lock-up, wheelspin, throttle oscillation, snap lift). The sidebar's
-"Model validation" panel reports the agreement between ML flags and rule
-flags. Rules also supply the human-readable label for each flagged event.
-
-### Replay (`replay/replay_engine.py`)
-An async generator emits one multi-driver frame bundle per tick (default
-10 Hz, adjustable 0.5×–8× from the UI, with pause/resume). Consumers cannot
-tell the data is historical — which is the point.
-
-### Persistence (`data/database.py`)
-After a replay completes, frames are written to a MongoDB **time-series
-collection** (`timeField: ts`, `metaField: {year, round, session, driver,
-lap}`). If MongoDB isn't running the app logs a warning and continues —
-persistence is additive, never required.
-
----
-
-## 4. Project structure
-
-```
-f1-telemetry-dashboard/
-├── backend/
-│   ├── requirements.txt
-│   ├── .env.example
-│   └── app/
-│       ├── main.py               FastAPI app: REST + /ws/replay
-│       ├── config.py             all tunables, env-overridable
-│       ├── models/schemas.py     Pydantic request/response models
-│       ├── data/
-│       │   ├── fastf1_loader.py  session loading + distance alignment
-│       │   └── database.py       MongoDB time-series (optional)
-│       ├── ml/
-│       │   ├── anomaly_detector.py  Isolation Forest engine
-│       │   └── physics_rules.py     rule-based weak labels + validation
-│       └── replay/replay_engine.py  10 Hz frame streamer
-└── frontend/
-    ├── package.json / vite.config.js / index.html
-    └── src/
-        ├── App.jsx                       state + frame merging
-        ├── api/client.js                 REST + ReplayClient (WebSocket)
-        ├── components/ControlPanel.jsx   cascading selectors + controls
-        ├── components/TelemetryCharts.jsx  synced charts + anomaly bands
-        ├── components/AnomalySidebar.jsx   event log + validation panel
-        └── styles.css                    pit-wall theme
-```
-
----
-
-## 5. Phase 2 & 2.5 features
-
-**Up to 5 drivers** — pick any 5 from the full grid.
-
-**Navigation tabs (no reload)** — Telemetry · Track Map · Session · History.
-All views stay mounted, so switching tabs never interrupts the stream.
-
-**Telemetry layout** — channel tabs (SPEED / THROTTLE / BRAKE / RPM / GEAR /
-DRS) always show one channel at a time. The STACKED/SEPARATE toggle controls
-drivers: STACKED overlays all drivers on one chart; SEPARATE gives each
-driver their own chart (baseline trace included on each).
-
-**Timeline zoom & scrub** — minimap under the charts: drag the window to
-pan, drag its edges to resize, click outside to jump, Ctrl+scroll over the
-charts to zoom around the cursor (page zoom is suppressed via a non-passive
-wheel listener). RESET ZOOM returns to following the full lap.
-
-**Track Map** — circuit outline from baseline GPS; every selected driver's
-dot moves using its OWN GPS position streamed in the frames. Clicking a dot
-focuses that driver's nearest anomaly; clicking a marker opens its diagnosis.
-
-**Driver profile overlay** — hover a driver chip in the lap header: a
-horizontal profile card (headshot, grid/finish, fastest lap, top speed,
-laps, pit stops) appears over the current view and hides on mouse-leave.
-
-**Session tab** — lap-time progression chart for the loaded drivers plus a
-clickable lap film strip per driver; clicking any point or card reloads the
-replay with that exact lap.
-
-**Baseline modes** — Session optimal · Personal best · **Off**. With Off,
-no baseline traces are drawn and — since the Isolation Forest requires a
-baseline lap — anomalies come from the physics rules alone (stated in the
-lap header).
-
-**Tuned detection (validated on 2024 Bahrain Q, VER vs LEC)** — brake
-channel normalised (FastF1 0/1 → 0–100 %), `ANOMALY_THRESHOLD=0.72`,
-`THROTTLE_OSC_STD=38.0`, and anomaly fragments within 30 m are merged
-*before* blip filtering.
-
-## 5b. Roadmap
-
-| Phase | Goal | Status |
+| Parameter | Value | Why |
 |---|---|---|
-| 1 | 2-driver replay, IF anomaly engine, synced charts, event log | done |
-| 2 | 5 drivers, nav tabs, zoom minimap, track map, live mode | done |
-| 2.5 | Session tab, profile overlay, per-driver GPS dots, baseline off, detection tuning | this repo |
-| 3 | History browser II: re-serve saved laps from MongoDB without FastF1 | this repo |
-| 4 | Cloud deploy: containerised backend, static frontend, MongoDB Atlas | stretch |
+| `ANOMALY_THRESHOLD` | 0.72 | Calibrated on 2024 Bahrain Q; 0.65 over-flagged |
+| `THROTTLE_OSC_STD` | 38.0 | 16.0 fired on normal driver style differences |
+| Brake channel | normalised 0/1 → 0–100 % | FastF1 returns boolean brake in some sessions |
+| Event merging | 30 m gap, merge **before** blip filter | Rescues fragmented genuine events |
 
-## 5c. Phase 3 - history re-serve
+Result on VER vs LEC (Bahrain Q): 16 merged events, both injected-fault synthetic
+tests pass, 7.4 % of frames flagged.
 
-The History tab is a multi-select browser over every lap persisted to the
-MongoDB time-series collection. Pick up to 5 saved laps from the **same
-Grand Prix** and "Load comparison" replays them instantly - the frames come
-straight from the database, FastF1 is never touched.
+## Honest limitations
 
-How it works (`backend/app/replay/history_serve.py`):
-- the fastest selected lap becomes the on-the-fly baseline (the original
-  session-optimal lap isn't stored);
-- stored `anomaly_score` values are reused and events re-extracted from
-  them; physics rules re-run to recover the event labels (they need no
-  baseline);
-- the same driver can be selected twice (e.g. VER L67 vs VER L69) - chart
-  keys become `VER·L67` / `VER·L69`;
-- driver colors come from a static team map
-  (`backend/app/data/team_colors.py`) since metadata isn't stored;
-- saved laps carry no GPS, so the Track Map shows its empty state, and the
-  Session/profile views need a FastF1 session, so they stay empty in
-  history mode. Both are stated limitations, not bugs.
+- **No true real-time feed exists publicly.** Replay mode is "historical data
+  through a real-time architecture"; live mode is OpenF1's ~30 s-delayed feed.
+- Live mode scores with physics rules only — the Isolation Forest needs a
+  baseline lap, which doesn't exist mid-session.
+- History mode: no track map (GPS isn't persisted), baseline = fastest selected
+  lap, profile/session views need a FastF1 context.
+- Track-map anomaly markers sit on the baseline racing line.
 
-## 6. Troubleshooting
+## Project structure
 
-| Symptom | Cause / fix |
-|---|---|
-| `Loading drivers...` hangs minutes | Normal on first session load (telemetry download). Watch backend terminal for FastF1 progress. |
-| `mongo: false` in /api/health | MongoDB not running. App still works; start the MongoDB service to enable persistence. |
-| WebSocket error in UI | Backend not running on :8000, or you opened the built frontend without the proxy. Run `uvicorn` first. |
-| `rate limit` messages from FastF1 | The underlying API throttles; FastF1 handles waits automatically. Avoid hammering many fresh sessions in a row. |
-| Charts feel laggy | Lower replay speed, or raise `DISTANCE_STEP_M` to 10 in `.env` (half the points). |
-| 2026 sessions missing | Only completed sessions have telemetry. Use 2024/2025 for development. |
+```
+backend/app/
+├── main.py                 REST + WebSocket (replay · live · history)
+├── config.py               all tunables, env-overridable
+├── data/                   fastf1_loader · openf1_client · database · team_colors
+├── ml/                     anomaly_detector (IF) · physics_rules (validation)
+└── replay/                 replay_engine (10 Hz) · history_serve (Mongo)
+frontend/src/
+├── App.jsx                 state, tabs, zoom domain, overlays
+├── api/client.js           REST + WebSocket client
+└── components/             TelemetryView · TrackMapView · SessionView ·
+                            HistoryView · Minimap · ControlPanel · NavBar ·
+                            ProfileOverlay · AnomalySidebar · TelemetryCharts
+```
 
-## 7. Disclaimer
+## Roadmap
 
-Unofficial project, not associated with Formula 1 or the FIA. Data accessed
-via the open-source FastF1 library for educational use.
+- [x] Phase 1 — replay pipeline, Isolation Forest, synced charts, event log
+- [x] Phase 2 — 5 drivers, nav tabs, zoom minimap, track map, live mode
+- [x] Phase 2.5 — session timeline, profile overlay, per-driver GPS, baseline off, real-data tuning
+- [x] Phase 3 — instant history re-serve from MongoDB
+- [ ] Delta-time chart (time gained/lost vs baseline along distance)
+- [ ] Corner segmentation: per-corner anomaly reporting
+- [ ] Mongo schema v2: persist GPS + events + baseline
+- [ ] Performance optimization pass (profile-first)
+- [ ] Second ML method (DTW / autoencoder) vs Isolation Forest — research study
+- [ ] Cloud deploy: containerised backend, static frontend, MongoDB Atlas
+
+## Disclaimer
+
+Unofficial project — not associated with Formula 1, the FIA, or any team. Data
+accessed via the open-source [FastF1](https://github.com/theOehrly/Fast-F1) and
+[OpenF1](https://openf1.org) projects for educational use. F1® is a trademark of
+Formula One Licensing B.V.
+
+## License
+
+[MIT](LICENSE)
