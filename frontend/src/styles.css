@@ -527,3 +527,26 @@ select:focus-visible, button:focus-visible {
 .lap-num { font-size: 11px; color: var(--text-dim); }
 .lap-time { font-size: 13px; font-weight: 600; }
 .lap-compound { font-size: 10px; color: var(--text-dim); }
+
+/* ----------------------------------------------------- phase 3: history --- */
+.history-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 16px; margin-bottom: 14px;
+}
+.history-toolbar .hint { max-width: 520px; }
+.start-btn.history-load { width: auto; padding: 10px 18px; flex: 0 0 auto; }
+.history-group { margin-bottom: 16px; }
+.history-group.dim { opacity: 0.45; }
+.history-group-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: 0.18em; color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.history-group-title em { font-style: normal; opacity: 0.7;
+                          letter-spacing: 0.04em; }
+.history-laps { display: flex; gap: 6px; flex-wrap: wrap; }
+.lap-card-btn.selected {
+  border-color: var(--text);
+  background: color-mix(in srgb, var(--text) 10%, var(--panel));
+}
+.lap-card-btn:disabled { opacity: 0.4; cursor: not-allowed; }

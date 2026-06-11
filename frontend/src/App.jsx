@@ -175,6 +175,17 @@ export default function App() {
     clientRef.current = client;
   };
 
+  // HISTORY tab: replay saved laps straight from MongoDB (no FastF1)
+  const handleLoadHistory = (laps) => {
+    setStatus('Loading saved laps...');
+    reset('replay');
+    setSessionRef(null);              // profiles/session need FastF1 context
+    const client = makeClient(false);
+    client.startHistory(laps);
+    clientRef.current = client;
+    setTab('telemetry');
+  };
+
   // SESSION tab: click a lap -> reload the replay with that exact lap
   const handlePickLap = (driver, lapNumber) => {
     const last = lastRequestRef.current;
@@ -245,6 +256,10 @@ export default function App() {
                     <span className="lap-base">baseline off ·
                       rules-only anomalies</span>
                   )}
+                  {meta.baseline_mode === 'fastest_selected' && (
+                    <span className="lap-base">from database ·
+                      baseline = fastest selected</span>
+                  )}
                 </div>
               ))}
             </header>
@@ -282,7 +297,7 @@ export default function App() {
                          onPickLap={handlePickLap} />
           </div>
           <div className={tab === 'history' ? '' : 'hidden'}>
-            <HistoryView />
+            <HistoryView onLoadHistory={handleLoadHistory} />
           </div>
         </main>
 

@@ -31,6 +31,10 @@ export class ReplayClient {
     this._open({ action: 'start_live', drivers });
   }
 
+  startHistory(laps) {
+    this._open({ action: 'start_history', laps });
+  }
+
   _open(firstMessage) {
     this.stop();
     const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
