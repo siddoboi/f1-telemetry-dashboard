@@ -113,8 +113,30 @@ def extract_events(scored: pd.DataFrame, driver: str) -> list[dict]:
         events.append(_event(driver, start,
                              float(scored.iloc[-1]["distance"]), peak, labels))
     # discard one-step blips (a single 5 m flag is usually noise)
-    return [e for e in events if e["end_distance"] - e["start_distance"]
-            >= 2 * config.DISTANCE_STEP_M]
+    events = [e for e in events if e["end_distance"] - e["start_distance"]
+              >= 2 * config.DISTANCE_STEP_M]
+    return _merge_nearby(events, gap_m=30.0)
+
+
+def _merge_nearby(events, gap_m=30.0):
+    """Merge events within gap_m metres of each other (same driver)."""
+    if not events:
+        return []
+    merged, current = [], events[0].copy()
+    for ev in events[1:]:
+        if (ev["driver"] == current["driver"]
+                and ev["start_distance"] - current["end_distance"] <= gap_m):
+            current["end_distance"] = ev["end_distance"]
+            current["peak_score"] = max(current["peak_score"], ev["peak_score"])
+            # keep the more specific label
+            if ev["label"] != "Atypical telemetry pattern":
+                current["label"] = ev["label"]
+                current["diagnosis"] = ev["diagnosis"]
+        else:
+            merged.append(current)
+            current = ev.copy()
+    merged.append(current)
+    return merged
 
 
 def _event(driver, start, end, peak, labels) -> dict:
@@ -141,8 +163,9 @@ def _diagnose(label: str, start: float, end: float, peak: float) -> str:
             f"Pattern consistent with wheelspin on corner exit "
             f"(peak score {peak:.2f}).",
         "Throttle instability":
-            f"Oscillating throttle application {where}, suggesting a "
-            f"confidence or balance issue (peak score {peak:.2f}).",
+            f"Throttle application style differs from the baseline driver "
+            f"{where}, suggesting a different corner entry approach "
+            f"(peak score {peak:.2f}).",
         "Mid-corner stability loss":
             f"Sudden throttle lift at partial throttle {where}, consistent "
             f"with a mid-corner snap or correction (peak score {peak:.2f}).",

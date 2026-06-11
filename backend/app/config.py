@@ -5,6 +5,9 @@ variable of the same name (see backend/.env.example).
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()
+
 # ---------------------------------------------------------------- paths ----
 BASE_DIR = Path(__file__).resolve().parent.parent          # backend/
 FASTF1_CACHE_DIR = Path(os.getenv("FASTF1_CACHE_DIR", BASE_DIR / "ff1_cache"))

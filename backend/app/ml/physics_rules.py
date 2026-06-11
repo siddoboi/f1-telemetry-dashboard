@@ -17,7 +17,7 @@ import pandas as pd
 LOCKUP_DECEL_KMH = 9.0        # speed drop per step while braking hard
 WHEELSPIN_RPM_JUMP = 320.0    # RPM jump per step w/o matching acceleration
 WHEELSPIN_SPEED_GAIN = 1.2    # km/h per step considered "matching" accel
-THROTTLE_OSC_STD = 16.0       # rolling std of throttle = pedal instability
+THROTTLE_OSC_STD = 38.0       # rolling std of throttle = pedal instability
 SNAP_THROTTLE_LIFT = 28.0     # sudden mid-corner lift (% per step)
 
 

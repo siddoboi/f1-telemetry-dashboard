@@ -151,6 +151,9 @@ def lap_to_distance_grid(lap) -> pd.DataFrame:
 
     df = pd.DataFrame(out)
     df["ngear"] = df["ngear"].round().astype(int)
+    # Normalize brake: FastF1 returns 0/1 boolean in some sessions
+    if df["brake"].max() <= 1.0:
+        df["brake"] = df["brake"] * 100
     df["drs"] = df["drs"].round().astype(int)
     df.rename(columns={"ngear": "gear"}, inplace=True)
     return df
@@ -189,6 +192,10 @@ def driver_session_stats(year: int, rnd: int, session: str,
             stats["top_speed_kmh"] = None
         stats["laps_completed"] = int(len(valid))
         stats["pit_stops"] = int(laps["PitInTime"].notna().sum())
+
+    # FastF1 returns brake as boolean 0/1 in some sessions — normalize to 0–100
+    if df["brake"].max() <= 1.0:
+        df["brake"] = df["brake"] * 100
     return stats
 
 
