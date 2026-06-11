@@ -154,3 +154,7 @@ Unofficial project — not associated with Formula 1, the FIA, or any team. Data
 accessed via the open-source [FastF1](https://github.com/theOehrly/Fast-F1) and
 [OpenF1](https://openf1.org) projects for educational use. F1® is a trademark of
 Formula One Licensing B.V.
+
+## License
+
+[MIT](LICENSE)
