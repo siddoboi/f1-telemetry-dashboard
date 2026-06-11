@@ -1,17 +1,19 @@
-// App: owns replay/live state, the zoom domain shared by all telemetry
-// charts, and the tab router. All views stay mounted (hidden with CSS) so
-// switching tabs never interrupts the stream.
+// App: owns replay/live state, the shared zoom domain, the tab router, the
+// hover profile overlay, and lap re-picking from the Session view.
 import { useMemo, useRef, useState } from 'react';
 import { ReplayClient } from './api/client';
 import NavBar from './components/NavBar';
 import ControlPanel from './components/ControlPanel';
 import TelemetryView from './components/TelemetryView';
 import TrackMapView from './components/TrackMapView';
-import DriversView from './components/DriversView';
+import SessionView from './components/SessionView';
 import HistoryView from './components/HistoryView';
 import AnomalySidebar from './components/AnomalySidebar';
+import ProfileOverlay from './components/ProfileOverlay';
 
 const CHANNELS = ['speed', 'throttle', 'brake', 'rpm', 'gear', 'drs'];
+const HOVER_SHOW_MS = 350;
+const HOVER_HIDE_MS = 200;
 
 export default function App() {
   const [tab, setTab] = useState('telemetry');
@@ -20,16 +22,19 @@ export default function App() {
   const [points, setPoints] = useState([]);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [mode, setMode] = useState('replay');           // 'replay' | 'live'
+  const [mode, setMode] = useState('replay');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [focusedEvent, setFocusedEvent] = useState(null);
   const [visibleDistance, setVisibleDistance] = useState(0);
-  const [driverDistances, setDriverDistances] = useState({});
-  const [domain, setDomain] = useState([0, 1]);
-  const [sessionRef, setSessionRef] = useState(null);   // for profile API
+  const [driverPositions, setDriverPositions] = useState({});
+  const [domain, setDomain] = useState(null);     // null = follow full lap
+  const [sessionRef, setSessionRef] = useState(null);
+  const [hoverProfile, setHoverProfile] = useState(null); // {code, rect}
   const clientRef = useRef(null);
   const bufferRef = useRef([]);
   const liveEventsRef = useRef([]);
+  const lastRequestRef = useRef(null);
+  const hoverTimer = useRef(null);
 
   const driverMeta = useMemo(() => {
     if (!meta) return {};
@@ -45,6 +50,18 @@ export default function App() {
     return [points[0].distance, points[points.length - 1].distance];
   }, [points]);
 
+  const effDomain = domain ?? fullRange;
+
+  const handleSetDomain = (d) => {
+    const [min, max] = fullRange;
+    const eps = (max - min) * 0.005;
+    if (Math.abs(d[0] - min) < eps && Math.abs(d[1] - max) < eps) {
+      setDomain(null);          // back to full lap = follow growth
+    } else {
+      setDomain(d);
+    }
+  };
+
   const visibleEvents = useMemo(() => {
     if (mode === 'live') return liveEventsRef.current;
     return (meta?.events || [])
@@ -59,7 +76,6 @@ export default function App() {
       let next = [...prev];
       for (const frame of buffered) {
         if (frame.mode === 'live') {
-          // live mode: append-only growing series, one point per bundle
           const p = { distance: 0 };
           for (const [drv, vals] of Object.entries(frame.drivers)) {
             p.distance = Math.max(p.distance, vals.distance);
@@ -79,26 +95,29 @@ export default function App() {
           if (next.length > 4000) next = next.slice(-4000);
         } else {
           const i = frame.index;
-          if (i >= next.length) continue;
+          // grow the array when no baseline pre-filled it (baseline OFF)
+          while (next.length <= i) next.push({ distance: 0 });
           const p = { ...next[i] };
+          let maxDist = p.distance || 0;
           for (const [drv, vals] of Object.entries(frame.drivers)) {
             for (const ch of CHANNELS) p[`${drv}_${ch}`] = vals[ch];
+            maxDist = Math.max(maxDist, vals.distance ?? 0);
           }
+          p.distance = p.distance || maxDist;
           next[i] = p;
         }
       }
       return next;
     });
     const last = buffered[buffered.length - 1];
-    const dists = {};
+    const pos = {};
     for (const [drv, vals] of Object.entries(last.drivers)) {
-      dists[drv] = vals.distance ?? 0;
+      pos[drv] = { distance: vals.distance ?? 0,
+                   x: vals.x ?? null, y: vals.y ?? null };
     }
-    setDriverDistances(dists);
-    setVisibleDistance(Math.max(0, ...Object.values(dists)));
-    if (last.mode === 'live') {
-      setDomain((d) => d); // domain managed below for live
-    }
+    setDriverPositions(pos);
+    setVisibleDistance(Math.max(0,
+      ...Object.values(pos).map((p) => p.distance)));
   };
 
   const makeClient = (isLive) => new ReplayClient({
@@ -109,21 +128,25 @@ export default function App() {
       setMeta(m); setStatus('');
       if (!isLive) {
         const first = Object.values(m.drivers)[0];
-        const dist = first.baseline.distance;
-        const base = [];
-        for (let i = 0; i < dist.length; i++) {
-          const p = { distance: dist[i] };
-          for (const [drv, info] of Object.entries(m.drivers)) {
-            for (const ch of CHANNELS) {
-              if (info.baseline[ch] && i < info.baseline[ch].length) {
-                p[`base_${drv}_${ch}`] = info.baseline[ch][i];
+        const dist = first?.baseline?.distance;
+        if (dist?.length) {                       // baseline traces present
+          const base = [];
+          for (let i = 0; i < dist.length; i++) {
+            const p = { distance: dist[i] };
+            for (const [drv, info] of Object.entries(m.drivers)) {
+              for (const ch of CHANNELS) {
+                if (info.baseline[ch] && i < info.baseline[ch].length) {
+                  p[`base_${drv}_${ch}`] = info.baseline[ch][i];
+                }
               }
             }
+            base.push(p);
           }
-          base.push(p);
+          setPoints(base);
+        } else {
+          setPoints([]);                          // baseline OFF: grow live
         }
-        setPoints(base);
-        setDomain([dist[0], dist[dist.length - 1]]);
+        setDomain(null);
       }
     },
     onFrame: (frame) => {
@@ -135,6 +158,7 @@ export default function App() {
   const handleStart = (request) => {
     setStatus('Connecting...');
     reset('replay');
+    lastRequestRef.current = request;
     setSessionRef({ year: request.year, round: request.round,
                     session: request.session });
     const client = makeClient(false);
@@ -146,19 +170,46 @@ export default function App() {
     setStatus('Connecting to live feed...');
     reset('live');
     setSessionRef(null);
-    setDomain([0, 100]);
     const client = makeClient(true);
     client.startLive(drivers);
     clientRef.current = client;
   };
 
+  // SESSION tab: click a lap -> reload the replay with that exact lap
+  const handlePickLap = (driver, lapNumber) => {
+    const last = lastRequestRef.current;
+    if (!last) return;
+    const req = { ...last,
+                  lap_numbers: { ...(last.lap_numbers || {}),
+                                 [driver]: lapNumber } };
+    setTab('telemetry');
+    handleStart(req);
+  };
+
   const reset = (m) => {
     clientRef.current?.stop();
     setMeta(null); setPoints([]); setRunning(true); setPaused(false);
-    setVisibleDistance(0); setDriverDistances({});
+    setVisibleDistance(0); setDriverPositions({});
     bufferRef.current = []; liveEventsRef.current = [];
-    setMode(m); setFocusedEvent(null);
+    setMode(m); setFocusedEvent(null); setDomain(null);
+    setHoverProfile(null);
   };
+
+  // ---- hover profile overlay (lap header chips) -------------------------
+  const chipEnter = (code) => (e) => {
+    clearTimeout(hoverTimer.current);
+    const rect = e.currentTarget.getBoundingClientRect();
+    hoverTimer.current = setTimeout(
+      () => setHoverProfile({ code, rect }), HOVER_SHOW_MS);
+  };
+  const chipLeave = () => {
+    clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(
+      () => setHoverProfile(null), HOVER_HIDE_MS);
+  };
+  const overlayEnter = () => clearTimeout(hoverTimer.current);
+
+  const focusEvent = (ev) => { setFocusedEvent(ev); setSidebarOpen(true); };
 
   return (
     <div className="app">
@@ -177,15 +228,23 @@ export default function App() {
           {meta && mode === 'replay' && (
             <header className="lap-header">
               {Object.entries(meta.drivers).map(([drv, info]) => (
-                <div className="lap-card" key={drv}
-                     style={{ '--team': info.meta.color }}>
+                <div className="lap-card hoverable" key={drv}
+                     style={{ '--team': info.meta.color }}
+                     onMouseEnter={chipEnter(drv)}
+                     onMouseLeave={chipLeave}>
                   <span className="lap-drv">{drv}</span>
                   <span>Lap {info.lap_number} · {info.lap_time}</span>
-                  <span className="lap-base">
-                    vs {info.baseline_driver} {info.baseline_lap_time}
-                    {meta.baseline_mode === 'personal_best'
-                      ? ' (PB)' : ' (optimal)'}
-                  </span>
+                  {info.baseline_driver && (
+                    <span className="lap-base">
+                      vs {info.baseline_driver} {info.baseline_lap_time}
+                      {meta.baseline_mode === 'personal_best'
+                        ? ' (PB)' : ' (optimal)'}
+                    </span>
+                  )}
+                  {meta.baseline_mode === 'off' && (
+                    <span className="lap-base">baseline off ·
+                      rules-only anomalies</span>
+                  )}
                 </div>
               ))}
             </header>
@@ -196,7 +255,7 @@ export default function App() {
                 <span className="lap-drv">{meta.session_name}</span>
                 <span>{meta.circuit}</span>
                 <span className="lap-base">distance integrated from speed ·
-                  rules-engine anomalies only</span>
+                  rules-engine anomalies</span>
               </div>
             </header>
           )}
@@ -206,21 +265,21 @@ export default function App() {
           <div className={tab === 'telemetry' ? '' : 'hidden'}>
             <TelemetryView
               points={points} driverMeta={driverMeta}
-              events={visibleEvents}
-              onEventClick={(ev) => { setFocusedEvent(ev); setSidebarOpen(true); }}
-              domain={mode === 'live' ? fullRange : domain}
-              setDomain={setDomain} fullRange={fullRange}
+              events={visibleEvents} onEventClick={focusEvent}
+              domain={effDomain} setDomain={handleSetDomain}
+              fullRange={fullRange}
             />
           </div>
           <div className={tab === 'trackmap' ? '' : 'hidden'}>
             <TrackMapView
               track={meta?.track} driverMeta={driverMeta}
-              driverDistances={driverDistances} events={visibleEvents}
-              onEventClick={(ev) => { setFocusedEvent(ev); setSidebarOpen(true); }}
+              driverPositions={driverPositions} events={visibleEvents}
+              onEventClick={focusEvent}
             />
           </div>
-          <div className={tab === 'drivers' ? '' : 'hidden'}>
-            <DriversView driverMeta={driverMeta} sessionRef={sessionRef} />
+          <div className={tab === 'session' ? '' : 'hidden'}>
+            <SessionView driverMeta={driverMeta} sessionRef={sessionRef}
+                         onPickLap={handlePickLap} />
           </div>
           <div className={tab === 'history' ? '' : 'hidden'}>
             <HistoryView />
@@ -236,6 +295,17 @@ export default function App() {
           focused={focusedEvent}
         />
       </div>
+
+      {hoverProfile && (
+        <ProfileOverlay
+          driver={hoverProfile.code}
+          color={driverMeta[hoverProfile.code]?.color || '#888'}
+          sessionRef={sessionRef}
+          anchorRect={hoverProfile.rect}
+          onMouseEnter={overlayEnter}
+          onMouseLeave={chipLeave}
+        />
+      )}
     </div>
   );
 }

@@ -447,3 +447,83 @@ select:focus-visible, button:focus-visible {
   .sidebar-toggle { writing-mode: horizontal-tb; position: static; }
   .navbar { gap: 12px; overflow-x: auto; }
 }
+
+/* --------------------------------------------------- phase 2.5 additions --- */
+/* per-driver chart blocks (SEPARATE driver mode) */
+.driver-chart-block { margin-bottom: 10px; }
+.driver-chart-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.14em;
+  border-left: 3px solid var(--team);
+  padding: 4px 10px; margin-bottom: 4px;
+  color: var(--text);
+}
+
+/* hover profile overlay */
+.lap-card.hoverable { cursor: default; }
+.lap-card.hoverable:hover { border-color: var(--team); }
+.profile-overlay {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  width: 540px;
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  border-left: 3px solid var(--team);
+  border-radius: 6px;
+  padding: 14px 18px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
+}
+.overlay-body { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.overlay-name { display: flex; flex-direction: column; gap: 2px; }
+.overlay-name strong { font-size: 16px; }
+.overlay-name span { font-size: 12px; color: var(--text-dim); }
+.overlay-stats {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+}
+.overlay-stat { display: flex; flex-direction: column; gap: 2px; }
+.overlay-stat .stat-value { font-size: 14px; }
+.profile-overlay .headshot { width: 72px; height: 72px; }
+
+/* focused event glow in sidebar */
+.event-card.focused {
+  border-color: var(--team);
+  box-shadow: 0 0 0 1px var(--team);
+}
+
+/* track map driver dots */
+.driver-dot { cursor: pointer; }
+.driver-dot:hover circle { stroke: var(--text); }
+
+/* session view */
+.session-view { display: flex; flex-direction: column; gap: 14px; }
+.session-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: 0.22em; color: var(--text-dim);
+}
+.film-strip-block { margin-top: 4px; }
+.film-strip {
+  display: flex; gap: 6px; overflow-x: auto; padding: 6px 2px 10px;
+}
+.lap-card-btn {
+  flex: 0 0 auto;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  border-top: 3px solid var(--team);
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: 'IBM Plex Mono', monospace;
+  text-align: left;
+}
+.lap-card-btn:hover { background: var(--panel-2); border-color: var(--team); }
+.lap-card-btn.pb { background: color-mix(in srgb, var(--team) 12%, var(--panel)); }
+.lap-num { font-size: 11px; color: var(--text-dim); }
+.lap-time { font-size: 13px; font-weight: 600; }
+.lap-compound { font-size: 10px; color: var(--text-dim); }

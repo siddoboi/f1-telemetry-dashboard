@@ -1,8 +1,18 @@
 // Collapsible right sidebar: chronological (by distance) anomaly event log
 // with programmatic diagnosis text, plus the ML-vs-physics-rules validation
 // summary so the model's behaviour is transparent, not a black box.
+import { useEffect, useRef } from 'react';
+
 export default function AnomalySidebar({ events, validation, driverMeta,
                                          open, onToggle, focused }) {
+  const refs = useRef({});
+  useEffect(() => {
+    if (focused == null) return;
+    const idx = events.indexOf(focused);
+    refs.current[idx]?.scrollIntoView({ behavior: 'smooth',
+                                        block: 'center' });
+  }, [focused, events]);
+
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
       <button className="sidebar-toggle" onClick={onToggle}>
@@ -21,6 +31,7 @@ export default function AnomalySidebar({ events, validation, driverMeta,
 
           {events.map((ev, i) => (
             <div key={i}
+                 ref={(el) => { refs.current[i] = el; }}
                  className={`event-card ${focused === ev ? 'focused' : ''}`}
                  style={{ '--team': driverMeta[ev.driver]?.color || '#888' }}>
               <div className="event-head">

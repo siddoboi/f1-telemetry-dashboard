@@ -1,18 +1,35 @@
-// The Telemetry tab. Two display modes, toggled top-right:
-//   STACKED   - every channel visible at once (F1TV default style)
-//   SEPARATE  - one channel at a time, picked from the channel tab strip
-// Both modes share the same zoom domain, controlled by the minimap below
-// and Ctrl+wheel over the chart area.
-import { useRef, useState } from 'react';
+// The Telemetry tab.
+// - Channel tabs (SPEED..DRS) always show ONE channel at a time.
+// - The STACKED / SEPARATE toggle controls DRIVERS:
+//     STACKED  - all drivers overlaid on one chart
+//     SEPARATE - one chart per driver, stacked vertically (baseline included)
+// - Ctrl+wheel zooms the distance window (non-passive listener so the
+//   browser page never zooms); minimap pans/resizes the window.
+import { useEffect, useRef, useState } from 'react';
 import TelemetryCharts, { CHART_DEFS } from './TelemetryCharts';
 import Minimap, { wheelZoom } from './Minimap';
 
 export default function TelemetryView({ points, driverMeta, events,
                                         onEventClick, domain, setDomain,
                                         fullRange }) {
-  const [mode, setMode] = useState('stacked');
+  const [driverMode, setDriverMode] = useState('stacked');
   const [channel, setChannel] = useState('speed');
   const areaRef = useRef(null);
+  const stateRef = useRef({});
+  stateRef.current = { domain, fullRange, setDomain };
+
+  // Non-passive wheel listener: preventDefault() actually works, so
+  // Ctrl+scroll zooms the timeline and never the browser page.
+  useEffect(() => {
+    const el = areaRef.current;
+    if (!el) return;
+    const handler = (e) => {
+      const { domain, fullRange, setDomain } = stateRef.current;
+      wheelZoom(e, domain, fullRange, setDomain, el);
+    };
+    el.addEventListener('wheel', handler, { passive: false });
+    return () => el.removeEventListener('wheel', handler);
+  }, []);
 
   if (!points.length) {
     return (
@@ -23,14 +40,14 @@ export default function TelemetryView({ points, driverMeta, events,
     );
   }
 
+  const drivers = Object.keys(driverMeta);
+  const def = CHART_DEFS.find((d) => d.key === channel);
+
   return (
-    <div className="telemetry-view"
-         ref={areaRef}
-         onWheel={(e) =>
-           wheelZoom(e, domain, fullRange, setDomain, areaRef.current)}>
+    <div className="telemetry-view" ref={areaRef}>
       <div className="telemetry-toolbar">
         <div className="channel-tabs">
-          {mode === 'separate' && CHART_DEFS.map((d) => (
+          {CHART_DEFS.map((d) => (
             <button key={d.key}
                     className={`chan-tab ${channel === d.key ? 'on' : ''}`}
                     onClick={() => setChannel(d.key)}>
@@ -38,30 +55,40 @@ export default function TelemetryView({ points, driverMeta, events,
             </button>
           ))}
         </div>
-        <div className="mode-toggle">
-          <button className={mode === 'stacked' ? 'on' : ''}
-                  onClick={() => setMode('stacked')}>STACKED</button>
-          <button className={mode === 'separate' ? 'on' : ''}
-                  onClick={() => setMode('separate')}>SEPARATE</button>
+        <div className="mode-toggle" title="Driver display">
+          <button className={driverMode === 'stacked' ? 'on' : ''}
+                  onClick={() => setDriverMode('stacked')}>STACKED</button>
+          <button className={driverMode === 'separate' ? 'on' : ''}
+                  onClick={() => setDriverMode('separate')}>SEPARATE</button>
         </div>
       </div>
 
-      <TelemetryCharts
-        data={points}
-        driverMeta={driverMeta}
-        events={events}
-        onEventClick={onEventClick}
-        domain={domain}
-        channels={mode === 'separate' ? [channel] : null}
-        tall={mode === 'separate'}
-      />
+      {driverMode === 'stacked' ? (
+        <TelemetryCharts
+          data={points} driverMeta={driverMeta} events={events}
+          onEventClick={onEventClick} domain={domain}
+          channels={[channel]} tall
+        />
+      ) : (
+        drivers.map((drv) => (
+          <div key={drv} className="driver-chart-block">
+            <div className="driver-chart-label"
+                 style={{ '--team': driverMeta[drv].color }}>{drv}</div>
+            <TelemetryCharts
+              data={points}
+              driverMeta={{ [drv]: driverMeta[drv] }}
+              events={events.filter((e) => e.driver === drv)}
+              onEventClick={onEventClick} domain={domain}
+              channels={[channel]}
+              tall={drivers.length === 1}
+            />
+          </div>
+        ))
+      )}
 
       <Minimap
-        points={points}
-        fullRange={fullRange}
-        domain={domain}
-        onDomain={setDomain}
-        driverMeta={driverMeta}
+        points={points} fullRange={fullRange}
+        domain={domain} onDomain={setDomain} driverMeta={driverMeta}
       />
       <p className="hint zoom-hint">Ctrl + scroll to zoom · drag the window
       to pan · drag its edges to resize</p>

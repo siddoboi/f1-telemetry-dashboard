@@ -186,6 +186,11 @@ export default function ControlPanel({ onStart, onStartLive, onPause,
                   onClick={() => setBaseline('personal_best')}>
             Personal best
           </button>
+          <button className={baseline === 'off' ? 'on' : ''}
+                  onClick={() => setBaseline('off')}
+                  title="No baseline traces; anomalies from physics rules only">
+            Off
+          </button>
         </div>
       </div>
 
