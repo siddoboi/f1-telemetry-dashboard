@@ -192,46 +192,52 @@ f1-telemetry-dashboard/
 
 ---
 
-## 5. Phase 2 features
+## 5. Phase 2 & 2.5 features
 
-**Up to 5 drivers** — pick any 5 from the full grid (`MAX_DRIVERS` in
-`ControlPanel.jsx` and `backend/app/config.py`).
+**Up to 5 drivers** — pick any 5 from the full grid.
 
-**Navigation tabs (no reload)** — Telemetry, Track Map, Drivers, History.
+**Navigation tabs (no reload)** — Telemetry · Track Map · Session · History.
 All views stay mounted, so switching tabs never interrupts the stream.
 
-**Telemetry display modes** — STACKED shows every channel at once (F1TV
-style); SEPARATE shows one tall chart at a time via the channel tab strip
-(Speed / Throttle / Brake / RPM / Gear / DRS).
+**Telemetry layout** — channel tabs (SPEED / THROTTLE / BRAKE / RPM / GEAR /
+DRS) always show one channel at a time. The STACKED/SEPARATE toggle controls
+drivers: STACKED overlays all drivers on one chart; SEPARATE gives each
+driver their own chart (baseline trace included on each).
 
-**Timeline zoom & scrub** — editing-software-style minimap under the charts:
-drag the window to pan, drag its edges to resize, click outside it to jump,
-Ctrl+scroll over the charts to zoom around the cursor. All charts share the
-zoom window; RESET ZOOM restores the full lap.
+**Timeline zoom & scrub** — minimap under the charts: drag the window to
+pan, drag its edges to resize, click outside to jump, Ctrl+scroll over the
+charts to zoom around the cursor (page zoom is suppressed via a non-passive
+wheel listener). RESET ZOOM returns to following the full lap.
 
-**Track Map** — full-page SVG circuit outline built from the baseline lap's
-GPS X/Y. Driver dots move along the track in sync with the replay; anomaly
-events appear as markers at their start distance (click → diagnosis).
-Single-racing-line approximation: all dots follow the baseline path.
+**Track Map** — circuit outline from baseline GPS; every selected driver's
+dot moves using its OWN GPS position streamed in the frames. Clicking a dot
+focuses that driver's nearest anomaly; clicking a marker opens its diagnosis.
 
-**Driver profile cards** — Drivers tab, click a chip: headshot (OpenF1),
-grid position, finish position, fastest lap + lap number, top speed (from
-telemetry), laps completed, pit stops, points, classification status
-(FastF1 results).
+**Driver profile overlay** — hover a driver chip in the lap header: a
+horizontal profile card (headshot, grid/finish, fastest lap, top speed,
+laps, pit stops) appears over the current view and hides on mouse-leave.
 
-**Live mode (OpenF1)** — when an F1 session is actually running, the control
-panel shows a GO LIVE box with the live entry list. Honest constraints,
-shown in the UI: the public feed is ~30 s delayed; lap distance is
-integrated from speed; anomalies come from the incremental physics rules
-(the Isolation Forest needs a baseline lap, which doesn't exist mid-session).
-Replay mode remains the precision tool.
+**Session tab** — lap-time progression chart for the loaded drivers plus a
+clickable lap film strip per driver; clicking any point or card reloads the
+replay with that exact lap.
+
+**Baseline modes** — Session optimal · Personal best · **Off**. With Off,
+no baseline traces are drawn and — since the Isolation Forest requires a
+baseline lap — anomalies come from the physics rules alone (stated in the
+lap header).
+
+**Tuned detection (validated on 2024 Bahrain Q, VER vs LEC)** — brake
+channel normalised (FastF1 0/1 → 0–100 %), `ANOMALY_THRESHOLD=0.72`,
+`THROTTLE_OSC_STD=38.0`, and anomaly fragments within 30 m are merged
+*before* blip filtering.
 
 ## 5b. Roadmap
 
 | Phase | Goal | Status |
 |---|---|---|
 | 1 | 2-driver replay, IF anomaly engine, synced charts, event log | done |
-| 2 | 5 drivers, nav tabs, stacked/separate toggle, zoom minimap, track map, driver cards, live mode | this repo |
+| 2 | 5 drivers, nav tabs, zoom minimap, track map, live mode | done |
+| 2.5 | Session tab, profile overlay, per-driver GPS dots, baseline off, detection tuning | this repo |
 | 3 | History browser II: re-serve saved laps from MongoDB without FastF1 | next |
 | 4 | Cloud deploy: containerised backend, static frontend, MongoDB Atlas | stretch |
 
