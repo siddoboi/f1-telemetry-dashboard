@@ -140,6 +140,12 @@ def lap_to_distance_grid(lap) -> pd.DataFrame:
         raw = tel[ch].to_numpy(dtype=float)
         out[ch.lower()] = np.interp(grid, dist, raw)
 
+    # GPS path for the track-map view (FastF1 merges pos_data into telemetry)
+    for ch in ("X", "Y"):
+        if ch in tel.columns:
+            out[ch.lower()] = np.interp(
+                grid, dist, tel[ch].to_numpy(dtype=float))
+
     t = tel["Time"].dt.total_seconds().to_numpy(dtype=float)
     out["time_s"] = np.interp(grid, dist, t - t[0])
 
@@ -148,6 +154,49 @@ def lap_to_distance_grid(lap) -> pd.DataFrame:
     df["drs"] = df["drs"].round().astype(int)
     df.rename(columns={"ngear": "gear"}, inplace=True)
     return df
+
+
+def driver_session_stats(year: int, rnd: int, session: str,
+                         driver: str) -> dict:
+    """Performance summary for the slide-in driver profile card."""
+    ses = load_session(year, rnd, session)
+    laps = ses.laps.pick_drivers(driver)
+    valid = laps[laps["LapTime"].notna()]
+
+    stats = {"driver": driver, "session": session}
+    res = ses.results
+    row = res[res["Abbreviation"] == driver]
+    if len(row):
+        r = row.iloc[0]
+        stats.update({
+            "full_name": str(r.get("FullName", "")),
+            "team": str(r.get("TeamName", "")),
+            "color": f'#{r.get("TeamColor")}' if r.get("TeamColor") else "#888",
+            "grid_position": _int_or_none(r.get("GridPosition")),
+            "finish_position": _int_or_none(r.get("Position")),
+            "classified_status": str(r.get("Status", "")) or None,
+            "points": float(r.get("Points")) if pd.notna(r.get("Points")) else None,
+        })
+
+    if len(valid):
+        best = valid.loc[valid["LapTime"].idxmin()]
+        stats["fastest_lap"] = _fmt_laptime(best["LapTime"])
+        stats["fastest_lap_number"] = int(best["LapNumber"])
+        try:
+            tel = best.get_telemetry()
+            stats["top_speed_kmh"] = float(tel["Speed"].max())
+        except Exception:                                    # noqa: BLE001
+            stats["top_speed_kmh"] = None
+        stats["laps_completed"] = int(len(valid))
+        stats["pit_stops"] = int(laps["PitInTime"].notna().sum())
+    return stats
+
+
+def _int_or_none(v):
+    try:
+        return int(v) if pd.notna(v) else None
+    except (TypeError, ValueError):
+        return None
 
 
 def build_comparison(year: int, rnd: int, session: str, drivers: list[str],
@@ -194,5 +243,16 @@ def build_comparison(year: int, rnd: int, session: str, drivers: list[str],
             "lap_time": _fmt_laptime(lap["LapTime"]),
             "comparison": comp_df,
             "baseline": base,
+        }
+
+    # GPS track path (for the Track Map view): take it from the shared
+    # baseline if available, else from the first comparison lap
+    path_df = (shared_baseline["df"] if shared_baseline is not None
+               else next(iter(result["drivers"].values()))["comparison"])
+    if "x" in path_df.columns and "y" in path_df.columns:
+        result["track"] = {
+            "distance": path_df["distance"].round(1).tolist(),
+            "x": path_df["x"].round(1).tolist(),
+            "y": path_df["y"].round(1).tolist(),
         }
     return result
