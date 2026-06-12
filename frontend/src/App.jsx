@@ -1,6 +1,6 @@
 // App: owns replay/live state, the shared zoom domain, the tab router, the
 // hover profile overlay, and lap re-picking from the Session view.
-import { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ReplayClient } from './api/client';
 import NavBar from './components/NavBar';
 import ControlPanel from './components/ControlPanel';
@@ -238,14 +238,6 @@ export default function App() {
         <main className="main">
           {meta && mode === 'replay' && (
             <header className="lap-header">
-              <div className="export-btns">
-                <a className="export-btn" href="/api/export/csv"
-                   title="Download telemetry.csv + events.csv as a ZIP">
-                  ⬇ CSV</a>
-                <a className="export-btn" href="/api/export/pdf"
-                   title="Download the multi-page PDF lap report">
-                  ⬇ PDF</a>
-              </div>
               {Object.entries(meta.drivers).map(([drv, info]) => (
                 <div className="lap-card hoverable" key={drv}
                      style={{ '--team': info.meta.color }}
@@ -270,6 +262,7 @@ export default function App() {
                   )}
                 </div>
               ))}
+            <ExportMenu />
             </header>
           )}
           {meta && mode === 'live' && (
@@ -280,6 +273,7 @@ export default function App() {
                 <span className="lap-base">distance integrated from speed ·
                   rules-engine anomalies</span>
               </div>
+            <ExportMenu />
             </header>
           )}
 
@@ -330,6 +324,33 @@ export default function App() {
           onMouseEnter={overlayEnter}
           onMouseLeave={chipLeave}
         />
+      )}
+    </div>
+  );
+}
+
+function ExportMenu() {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="export-menu">
+      <button className="export-btn" onClick={() => setOpen((o) => !o)}>
+        ⬇ Export
+      </button>
+      {open && (
+        <>
+          <div className="export-backdrop" onClick={() => setOpen(false)} />
+          <div className="export-overlay">
+            <p className="export-label">Export as</p>
+            <a className="export-option" href="/api/export/csv"
+               onClick={() => setOpen(false)}>
+              CSV <span>telemetry + events as ZIP</span>
+            </a>
+            <a className="export-option" href="/api/export/pdf"
+               onClick={() => setOpen(false)}>
+              PDF <span>multi-page lap report</span>
+            </a>
+          </div>
+        </>
       )}
     </div>
   );
