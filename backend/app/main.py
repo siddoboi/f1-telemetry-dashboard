@@ -148,6 +148,12 @@ def _prepare(req: ReplayRequest) -> dict:
 
         det = AnomalyDetector().fit(info["baseline"]["df"])
         scored = det.score(info["comparison"], info["baseline"]["df"])
+        # delta-time vs baseline: + = slower than baseline at this distance
+        base_t = info["baseline"]["df"]["time_s"].to_numpy()
+        n = min(len(scored), len(base_t))
+        scored = scored.iloc[:n].copy()
+        scored["delta"] = (scored["time_s"].to_numpy()[:n]
+                           - base_t[:n]).round(3)
         scored_laps[drv] = scored
         events = extract_events(scored, drv)
         meta["events"].extend(events)

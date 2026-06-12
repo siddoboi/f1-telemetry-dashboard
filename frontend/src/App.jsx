@@ -283,6 +283,8 @@ export default function App() {
               events={visibleEvents} onEventClick={focusEvent}
               domain={effDomain} setDomain={handleSetDomain}
               fullRange={fullRange}
+              hasBaseline={!!meta && meta.mode !== 'live'
+                           && meta.baseline_mode !== 'off'}
             />
           </div>
           <div className={tab === 'trackmap' ? '' : 'hidden'}>

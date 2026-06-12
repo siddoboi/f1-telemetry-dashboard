@@ -27,7 +27,12 @@ def apply_rules(df: pd.DataFrame) -> pd.DataFrame:
     d_speed = np.gradient(out["speed"].to_numpy())
     d_rpm = np.gradient(out["rpm"].to_numpy())
     d_throttle = np.gradient(out["throttle"].to_numpy())
-    gear_change = np.concatenate(([0], np.diff(out["gear"].to_numpy()))) != 0
+    gc = np.concatenate(([0], np.diff(out["gear"].to_numpy()))) != 0
+    # central gradients smear a 1-step rpm jump across 2 steps, so the
+    # gear-change exemption must be dilated by one step each side
+    gear_change = gc.copy()
+    gear_change[:-1] |= gc[1:]
+    gear_change[1:] |= gc[:-1]
 
     braking = out["brake"].to_numpy() > 50
 

@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip,
-  ReferenceArea, CartesianGrid,
+  ReferenceArea, ReferenceLine, CartesianGrid,
 } from 'recharts';
 
 export const CHART_DEFS = [
@@ -14,6 +14,8 @@ export const CHART_DEFS = [
   { key: 'rpm', label: 'RPM', height: 120 },
   { key: 'gear', label: 'GEAR', height: 100, step: true },
   { key: 'drs', label: 'DRS', height: 80, step: true },
+  { key: 'delta', label: 'DELTA · s vs baseline', height: 210,
+    needsBaseline: true },
 ];
 
 export default function TelemetryCharts({ data, driverMeta, events,
@@ -45,14 +47,24 @@ export default function TelemetryCharts({ data, driverMeta, events,
                      tickFormatter={(v) => `${Math.round(v)}m`}
                      stroke="var(--axis)" fontSize={10} />
               <YAxis stroke="var(--axis)" fontSize={10} width={44}
-                     domain={['auto', 'auto']} />
+                     domain={['auto', 'auto']}
+                     tickFormatter={def.key === 'delta'
+                       ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}` : undefined} />
+              {def.key === 'delta' && (
+                <ReferenceLine y={0} stroke="var(--text)"
+                               strokeDasharray="6 4" strokeOpacity={0.55} />
+              )}
               <Tooltip
                 contentStyle={{ background: 'var(--panel)',
                                 border: '1px solid var(--grid)',
                                 fontSize: 11 }}
                 labelFormatter={(v) => `${Math.round(v)} m`}
                 formatter={(value, name) =>
-                  [typeof value === 'number' ? value.toFixed(1) : value, name]}
+                  [typeof value === 'number'
+                     ? (def.key === 'delta'
+                        ? `${value > 0 ? '+' : ''}${value.toFixed(3)} s`
+                        : value.toFixed(1))
+                     : value, name]}
               />
 
               {events.map((ev, i) => (
