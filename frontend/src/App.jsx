@@ -238,6 +238,14 @@ export default function App() {
         <main className="main">
           {meta && mode === 'replay' && (
             <header className="lap-header">
+              <div className="export-btns">
+                <a className="export-btn" href="/api/export/csv"
+                   title="Download telemetry.csv + events.csv as a ZIP">
+                  ⬇ CSV</a>
+                <a className="export-btn" href="/api/export/pdf"
+                   title="Download the multi-page PDF lap report">
+                  ⬇ PDF</a>
+              </div>
               {Object.entries(meta.drivers).map(([drv, info]) => (
                 <div className="lap-card hoverable" key={drv}
                      style={{ '--team': info.meta.color }}

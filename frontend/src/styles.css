@@ -550,3 +550,20 @@ select:focus-visible, button:focus-visible {
   background: color-mix(in srgb, var(--text) 10%, var(--panel));
 }
 .lap-card-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+
+/* ------------------------------------------------------------ export --- */
+.export-btns { display: flex; gap: 6px; order: 99; margin-left: auto; }
+.export-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  background: var(--panel);
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  padding: 8px 12px;
+  text-decoration: none;
+  align-self: center;
+}
+.export-btn:hover { color: var(--text); border-color: var(--text-dim); }
