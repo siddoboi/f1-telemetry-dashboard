@@ -2,8 +2,21 @@
 // FastAPI on :8000, so no hardcoded hosts are needed in dev.
 
 export async function api(path) {
-  const res = await fetch(`/api${path}`);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  let res;
+  try {
+    res = await fetch(`/api${path}`);
+  } catch {
+    throw new Error('Network error — is the backend running on port 8000?');
+  }
+  if (!res.ok) {
+    // backend returns {error, detail, path}; surface detail when present
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = body.detail;
+    } catch { /* non-JSON error body */ }
+    throw new Error(detail);
+  }
   return res.json();
 }
 
