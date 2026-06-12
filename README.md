@@ -1,8 +1,8 @@
 # 🏎️ PIT WALL — F1 Real-Time Telemetry & Driver Consistency Dashboard
 
-A full-stack motorsport analytics platform that streams real Formula 1 telemetry —
+A full-stack motorsport analytics platform that streams real Formula 1 telemetry,
 historical laps replayed through a real-time pipeline, OpenF1's delayed live feed
-during race weekends, or instantly from a local database — compares drivers against
+during race weekends, or instantly from a local database, compares drivers against
 a baseline lap **indexed by track distance**, and uses an unsupervised
 **Isolation Forest** to flag driving anomalies (tyre lock-ups, wheelspin, throttle
 instability, mid-corner snaps) with automated text diagnoses.
@@ -13,7 +13,7 @@ instability, mid-corner snaps) with automated text diagnoses.
 
 ## Why distance, not time?
 
-Comparing two laps by elapsed time is meaningless — a slower driver is at a
+Comparing two laps by elapsed time is meaningless, a slower driver is at a
 *different corner* at the same `t`. Every channel here is resampled onto a uniform
 5 m distance grid, so "VER at 1,250 m" and "LEC at 1,250 m" are the same piece of
 track. Distance is the X-axis everywhere: charts, anomaly events, zoom, track map.
@@ -52,22 +52,22 @@ physics-rule validation   exists mid-session)
 - Isolation Forest trained on the baseline lap, scoring the comparison lap on
   baseline-delta + derivative features
 - Validated against four independent physics rules (lock-up, wheelspin, throttle
-  oscillation, snap lift) — agreement metrics shown in the UI
+  oscillation, snap lift) - agreement metrics shown in the UI
 - Anomaly fragments merged across 30 m, then blip-filtered; events carry
   programmatic text diagnoses
 - Tuned on real data (2024 Bahrain GP Qualifying, VER vs LEC)
 
 **Views**
-- **Track Map** — SVG circuit from baseline GPS; every driver's dot moves on its
+- **Track Map** - SVG circuit from baseline GPS; every driver's dot moves on its
   *own* GPS position; anomaly markers are clickable
-- **Session** — lap-time progression chart + clickable lap film strip; click any
+- **Session** - lap-time progression chart + clickable lap film strip; click any
   lap to reload the replay with it
-- **History** — every completed replay persists to a MongoDB time-series
+- **History** - every completed replay persists to a MongoDB time-series
   collection; select up to 5 saved laps and replay them **instantly, offline,
   without FastF1**
-- **Driver profile overlay** — hover a driver chip: headshot, grid/finish,
+- **Driver profile overlay** - hover a driver chip: headshot, grid/finish,
   fastest lap, top speed, pit stops
-- **Live mode** — when a real F1 session is running, stream it via OpenF1
+- **Live mode** - when a real F1 session is running, stream it via OpenF1
   (~30 s delay, stated honestly in the UI)
 
 ## Quick start
@@ -108,6 +108,20 @@ baseline `Session optimal` → **Start replay**.
 Result on VER vs LEC (Bahrain Q): 16 merged events, both injected-fault synthetic
 tests pass, 7.4 % of frames flagged.
 
+## Tests
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest -m "not slow"     # fast suite: 25 tests, offline, ~7 s
+pytest -m slow           # real-data validation vs 2024 Bahrain Q (downloads)
+```
+
+Covers the four physics rules, the Isolation Forest pipeline against injected
+faults, history re-serve logic, and replay-engine behavior. The suite caught a
+real bug during its own construction: the gear-change exemption in the
+wheelspin rule was one step too narrow for central-difference gradients.
+
 ## Honest limitations
 
 - **No true real-time feed exists publicly.** Replay mode is "historical data
@@ -141,7 +155,7 @@ frontend/src/
 - [x] Phase 2 — 5 drivers, nav tabs, zoom minimap, track map, live mode
 - [x] Phase 2.5 — session timeline, profile overlay, per-driver GPS, baseline off, real-data tuning
 - [x] Phase 3 — instant history re-serve from MongoDB
-- [ ] Delta-time chart (time gained/lost vs baseline along distance)
+- [x] Delta-time chart (time gained/lost vs baseline along distance)
 - [ ] Corner segmentation: per-corner anomaly reporting
 - [ ] Mongo schema v2: persist GPS + events + baseline
 - [ ] Performance optimization pass (profile-first)
