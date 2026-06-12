@@ -11,7 +11,7 @@ import HistoryView from './components/HistoryView';
 import AnomalySidebar from './components/AnomalySidebar';
 import ProfileOverlay from './components/ProfileOverlay';
 
-const CHANNELS = ['speed', 'throttle', 'brake', 'rpm', 'gear', 'drs'];
+const CHANNELS = ['speed', 'throttle', 'brake', 'rpm', 'gear', 'drs', 'delta'];
 const HOVER_SHOW_MS = 350;
 const HOVER_HIDE_MS = 200;
 
