@@ -82,6 +82,11 @@ def build_history_comparison(lap_requests: list[dict],
         df["anomaly_label"] = np.where(
             df["anomaly"], dilated.fillna("Atypical telemetry pattern"),
             None)
+        # delta-time vs the fastest selected lap
+        base_t = base_df["time_s"].to_numpy()
+        n = min(len(df), len(base_t))
+        df = df.iloc[:n].copy()
+        df["delta"] = (df["time_s"].to_numpy()[:n] - base_t[:n]).round(3)
         scored_laps[key] = df
         meta["events"].extend(extract_events(df, key))
 
