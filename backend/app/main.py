@@ -23,14 +23,16 @@ import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Response, WebSocket, \
+from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, \
     WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
 from app.data import database, fastf1_loader as f1, openf1_client as of1
 from app.export import report as export_report
+from app.logging_setup import setup_logging
 from app.ml.anomaly_detector import (AnomalyDetector, extract_events,
                                       score_rules_only)
 from app.ml.physics_rules import agreement_report
@@ -38,8 +40,7 @@ from app.models.schemas import ReplayRequest
 from app.replay.history_serve import build_history_comparison
 from app.replay.replay_engine import ReplayEngine, FRAME_COLS
 
-logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s %(name)s %(levelname)s %(message)s")
+setup_logging()
 log = logging.getLogger(__name__)
 
 
@@ -49,6 +50,27 @@ async def lifespan(_: FastAPI):
     yield
 
 app = FastAPI(title="F1 Telemetry & Driver Consistency API", lifespan=lifespan)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all: log the full traceback, return a clean JSON envelope."""
+    log.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"error": exc.__class__.__name__,
+                 "detail": str(exc),
+                 "path": request.url.path},
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": "HTTPException", "detail": exc.detail,
+                 "path": request.url.path},
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -235,7 +257,14 @@ async def ws_replay(ws: WebSocket):
                 await ws.send_json({"type": "status",
                                     "message": "Loading session data "
                                                "(first load can take a while)..."})
-                prepared = await run_in_threadpool(_prepare, req)
+                try:
+                    prepared = await run_in_threadpool(_prepare, req)
+                except Exception as exc:                       # noqa: BLE001
+                    log.exception("replay prepare failed")
+                    await ws.send_json({"type": "error",
+                                        "message": f"Could not load this "
+                                                   f"session: {exc}"})
+                    continue
                 _cache_export(prepared["meta"], prepared["scored_laps"],
                               f"pitwall_{req.year}_R{req.round}_{req.session}")
                 await ws.send_json(prepared["meta"])

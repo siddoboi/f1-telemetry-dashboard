@@ -149,7 +149,7 @@ def build_pdf(meta: dict, scored_laps: dict[str, pd.DataFrame]) -> bytes:
     body = ParagraphStyle("body", parent=ss["Normal"], fontSize=8.5,
                           leading=11)
 
-    story = [Paragraph("PIT WALL: Lap Comparison Report", h1)]
+    story = [Paragraph("PIT WALL — Lap Comparison Report", h1)]
 
     # header line
     drivers = meta.get("drivers", {})
@@ -196,7 +196,7 @@ def build_pdf(meta: dict, scored_laps: dict[str, pd.DataFrame]) -> bytes:
         s = _driver_stats(df)
         rows.append([drv, f"{s['top_speed']} km/h",
                      f"{s['mean_throttle']} %", f"{s['brake_pct']} % of lap",
-                     f"{s['rpm_min']}-{s['rpm_max']}",
+                     f"{s['rpm_min']}–{s['rpm_max']}",
                      f"{s['flagged_pct']} %"])
     t = Table(rows, colWidths=[55, 70, 75, 75, 90, 75])
     t.setStyle(_tbl_style)
@@ -211,13 +211,13 @@ def build_pdf(meta: dict, scored_laps: dict[str, pd.DataFrame]) -> bytes:
         df = scored_laps.get(ev["driver"])
         block = [Paragraph(
             f"<b>{i}. {ev['driver']} · {ev['label']}</b> &nbsp; "
-            f"{ev['start_distance']:.0f}-{ev['end_distance']:.0f} m · "
+            f"{ev['start_distance']:.0f}–{ev['end_distance']:.0f} m · "
             f"peak score {ev['peak_score']:.2f}", body),
             Paragraph(ev["diagnosis"], sub)]
         if df is not None:
             stats = event_channel_stats(df, ev)
             chans = RELEVANT.get(ev["label"], STAT_CHANNELS)
-            rows = [["Channel", "Entry", "Exit", "Change", "Range (min-max)"]]
+            rows = [["Channel", "Entry", "Exit", "Change", "Range (min–max)"]]
             for ch in chans:
                 u = UNITS[ch]
                 s = stats[ch]
@@ -226,7 +226,7 @@ def build_pdf(meta: dict, scored_laps: dict[str, pd.DataFrame]) -> bytes:
                              f"{s['entry']} {u}".strip(),
                              f"{s['exit']} {u}".strip(),
                              f"{sign}{s['change']} {u}".strip(),
-                             f"{s['min']}-{s['max']} {u}".strip()])
+                             f"{s['min']}–{s['max']} {u}".strip()])
             t = Table(rows, colWidths=[70, 75, 75, 75, 110])
             t.setStyle(_tbl_style)
             block.append(t)
