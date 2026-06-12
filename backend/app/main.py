@@ -23,12 +23,14 @@ import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Response, WebSocket, \
+    WebSocketDisconnect
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
 from app.data import database, fastf1_loader as f1, openf1_client as of1
+from app.export import report as export_report
 from app.ml.anomaly_detector import (AnomalyDetector, extract_events,
                                       score_rules_only)
 from app.ml.physics_rules import agreement_report
@@ -119,6 +121,40 @@ async def profile(year: int, rnd: int, session: str, driver: str):
     return stats
 
 
+# -------------------------------------------------------------- export ----
+# Last prepared comparison, cached for the export endpoints. Single-user
+# local app: one slot is sufficient and honest.
+_EXPORT_CACHE: dict = {"meta": None, "scored_laps": None, "name": "export"}
+
+
+def _cache_export(meta, scored_laps, name):
+    _EXPORT_CACHE.update(meta=meta, scored_laps=scored_laps, name=name)
+
+
+@app.get("/api/export/csv")
+async def export_csv():
+    if not _EXPORT_CACHE["scored_laps"]:
+        raise HTTPException(404, "No comparison loaded yet - start a replay "
+                                 "or load saved laps first.")
+    data = export_report.build_csv_zip(_EXPORT_CACHE["meta"],
+                                       _EXPORT_CACHE["scored_laps"])
+    return Response(data, media_type="application/zip", headers={
+        "Content-Disposition":
+            f'attachment; filename="{_EXPORT_CACHE["name"]}.zip"'})
+
+
+@app.get("/api/export/pdf")
+async def export_pdf():
+    if not _EXPORT_CACHE["scored_laps"]:
+        raise HTTPException(404, "No comparison loaded yet - start a replay "
+                                 "or load saved laps first.")
+    data = export_report.build_pdf(_EXPORT_CACHE["meta"],
+                                   _EXPORT_CACHE["scored_laps"])
+    return Response(data, media_type="application/pdf", headers={
+        "Content-Disposition":
+            f'attachment; filename="{_EXPORT_CACHE["name"]}.pdf"'})
+
+
 # ------------------------------------------------------------ WebSocket ----
 def _prepare(req: ReplayRequest) -> dict:
     """Blocking heavy lifting (FastF1 download + ML). Runs in a threadpool."""
@@ -200,6 +236,8 @@ async def ws_replay(ws: WebSocket):
                                     "message": "Loading session data "
                                                "(first load can take a while)..."})
                 prepared = await run_in_threadpool(_prepare, req)
+                _cache_export(prepared["meta"], prepared["scored_laps"],
+                              f"pitwall_{req.year}_R{req.round}_{req.session}")
                 await ws.send_json(prepared["meta"])
                 engine = ReplayEngine(prepared["scored_laps"],
                                       req.tick_rate_hz)
@@ -263,6 +301,9 @@ async def ws_replay(ws: WebSocket):
                     await ws.send_json({"type": "error",
                                         "message": str(exc)})
                     continue
+                _cache_export(prepared["meta"], prepared["scored_laps"],
+                              f"pitwall_history_{lap_reqs[0]['year']}"
+                              f"_R{lap_reqs[0]['round']}")
                 await ws.send_json(prepared["meta"])
                 engine = ReplayEngine(prepared["scored_laps"],
                                       msg.get("tick_rate_hz"))
