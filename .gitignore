@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 backend/ff1_cache/
+backend/logs/
 backend/.env
 
 # node

@@ -157,6 +157,7 @@ frontend/src/
 - [x] Phase 3 — instant history re-serve from MongoDB
 - [x] Delta-time chart (time gained/lost vs baseline along distance)
 - [x] Export: CSV bundle + multi-page PDF lap report with per-event channel stats
+- [x] Error logging & debugging infrastructure (rotating file log, exception handlers, React error boundaries)
 - [ ] Corner segmentation: per-corner anomaly reporting
 - [ ] Mongo schema v2: persist GPS + events + baseline
 - [ ] Performance optimization pass (profile-first)
