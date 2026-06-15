@@ -292,6 +292,8 @@ async def ws_replay(ws: WebSocket):
                 engine.resume()
             elif action == "speed" and engine:
                 engine.set_speed(float(msg.get("value", 1.0)))
+            elif action == "seek" and engine:
+                engine.seek_to_distance(float(msg.get("value", 0.0)))
             elif action == "stop" and engine:
                 engine.stop()
     except WebSocketDisconnect:

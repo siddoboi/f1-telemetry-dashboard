@@ -70,3 +70,66 @@ def test_speed_multiplier_clamped(scored):
     assert eng.tick == pytest.approx(1 / (10 * 20))
     eng.set_speed(0.01)                             # clamps to 0.1x
     assert eng.tick == pytest.approx(1 / (10 * 0.1))
+
+
+async def test_forward_seek_fills_skipped_frames(scored):
+    from app.replay.replay_engine import ReplayEngine
+    eng = ReplayEngine({"T": scored}, tick_rate_hz=5000)
+    frames, seeked = [], False
+    async for f in eng.frames():
+        frames.append(f)
+        if not seeked and len(frames) > 20:
+            eng.seek_to_distance(float(scored["distance"].iloc[600]))
+            seeked = True
+        if f["type"] == "complete":
+            break
+    idxs = [f["index"] for f in frames if f["type"] in ("frame", "seek_fill")]
+    assert idxs == list(range(len(idxs))), "seek left gaps in frame indices"
+    assert any(f["type"] == "seek_fill" for f in frames)
+
+
+async def test_backward_seek_ignored_by_engine(scored):
+    from app.replay.replay_engine import ReplayEngine
+    eng = ReplayEngine({"T": scored}, tick_rate_hz=5000)
+    # cursor starts at 0; a backward/early target sets nothing
+    eng._cursor = 100
+    eng.seek_to_distance(0.0)
+    assert eng._seek_to is None
+
+
+async def test_forward_seek_fast_emits_skipped_frames(scored):
+    from app.replay.replay_engine import ReplayEngine
+    eng = ReplayEngine({"TST": scored}, tick_rate_hz=5000)
+    it = eng.frames()
+    first = await it.__anext__()
+    assert first["index"] == 0
+
+    target_distance = float(scored["distance"].iloc[200])
+    eng.seek_to_distance(target_distance)
+
+    seen_indices = []
+    seen_kinds = []
+    for _ in range(205):                     # enough to pass the seek point
+        frame = await it.__anext__()
+        seen_indices.append(frame["index"])
+        seen_kinds.append(frame["type"])
+    eng.stop()
+
+    # indices must be contiguous (no gaps) up to and past the seek target
+    assert seen_indices == list(range(1, 1 + len(seen_indices)))
+    # the skipped region was fast-emitted as seek_fill, not paced "frame"
+    assert "seek_fill" in seen_kinds
+    assert seen_kinds.count("seek_fill") >= 190
+
+
+async def test_seek_backward_is_ignored(scored):
+    from app.replay.replay_engine import ReplayEngine
+    eng = ReplayEngine({"TST": scored}, tick_rate_hz=5000)
+    it = eng.frames()
+    for _ in range(50):
+        await it.__anext__()
+    eng.seek_to_distance(0.0)              # behind the cursor -> ignored
+    assert eng._seek_to is None
+    frame = await it.__anext__()
+    assert frame["index"] == 50            # continued normally
+    eng.stop()
