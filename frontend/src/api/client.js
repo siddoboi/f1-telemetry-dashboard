@@ -6,7 +6,7 @@ export async function api(path) {
   try {
     res = await fetch(`/api${path}`);
   } catch {
-    throw new Error('Network error — is the backend running on port 8000?');
+    throw new Error('Network error - is the backend running on port 8000?');
   }
   if (!res.ok) {
     // backend returns {error, detail, path}; surface detail when present
