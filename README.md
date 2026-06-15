@@ -1,4 +1,4 @@
-# 🏎️ PIT WALL — F1 Real-Time Telemetry & Driver Consistency Dashboard
+# 🏎️ PIT WALL - F1 Real-Time Telemetry & Driver Consistency Dashboard
 
 A full-stack motorsport analytics platform that streams real Formula 1 telemetry —
 historical laps replayed through a real-time pipeline, OpenF1's delayed live feed
@@ -124,17 +124,6 @@ faults, history re-serve logic, and replay-engine behavior. The suite caught a
 real bug during its own construction: the gear-change exemption in the
 wheelspin rule was one step too narrow for central-difference gradients.
 
-## Timeline seek
-
-The minimap shows a draggable playhead (current replay position) separate
-from the zoom-window handles. Dragging it:
-- **backward** - purely a frontend cursor move using frames already received,
-  no backend round trip;
-- **forward** - sends `{action:"seek", value:<distance>}`; `ReplayEngine`
-  fast-emits every skipped frame (`type:"seek_fill"`, no pacing delay) so the
-  chart data backfills completely, then normal 10 Hz pacing resumes from the
-  new position.
-
 ## Honest limitations
 
 - **No true real-time feed exists publicly.** Replay mode is "historical data
@@ -171,9 +160,6 @@ frontend/src/
 - [x] Delta-time chart (time gained/lost vs baseline along distance)
 - [x] Export: CSV bundle + multi-page PDF lap report with per-event channel stats
 - [x] Error logging & debugging infrastructure (rotating file log, exception handlers, React error boundaries)
-- [x] Phase 4: remove live mode, sidebar scroll + bidirectional highlight fixes
-- [x] Phase 5: timeline seek bar (backward = cursor move, forward = backend fast-emit)
-- [x] Timeline seek bar — drag the minimap playhead to jump anywhere; backward seeks move instantly using buffered data, forward seeks fast-emit skipped frames from the backend
 - [ ] Corner segmentation: per-corner anomaly reporting
 - [ ] Mongo schema v2: persist GPS + events + baseline
 - [ ] Performance optimization pass (profile-first)
