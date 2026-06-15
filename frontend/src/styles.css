@@ -614,8 +614,28 @@ select:focus-visible, button:focus-visible {
 .export-option:hover { border-color: var(--text-dim); background: var(--panel); }
 
 /* timeline playhead (seek) */
-.mm-playhead { cursor: ew-resize; }
-.mm-playhead-hit { fill: transparent; }
-.mm-playhead-line { fill: var(--text); }
-.mm-playhead-knob { fill: var(--text); stroke: var(--bg); stroke-width: 0.5; }
-.mm-playhead:hover .mm-playhead-line { fill: #fff; }
+.mm-wrap { position: relative; }
+.mm-playhead {
+  position: absolute; top: 0; bottom: 0;
+  width: 16px; margin-left: -8px;     /* generous invisible hit area */
+  display: flex; justify-content: center;
+  cursor: ew-resize; touch-action: none;
+}
+.mm-playhead-line {
+  position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 2px; margin-left: -1px;
+  background: var(--text);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+.mm-playhead-handle {
+  position: absolute; top: -4px; left: 50%;
+  width: 9px; height: 9px; margin-left: -4.5px;
+  background: var(--text);
+  border: 1px solid var(--bg);
+  border-radius: 2px;
+  transform: rotate(45deg);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+}
+.mm-playhead:hover .mm-playhead-line,
+.mm-playhead:hover .mm-playhead-handle { background: #fff; }
+.mm-playhead:active .mm-playhead-handle { transform: rotate(45deg) scale(1.15); }

@@ -3,15 +3,15 @@
 // window. Dragging the window pans; dragging its edges resizes (zooms);
 // Ctrl+wheel anywhere over the charts zooms around the cursor.
 // The selected [start, end] distance range drives EVERY chart above it.
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 const H = 56;
 
 export default function Minimap({ points, fullRange, domain, onDomain,
                                   driverMeta, playhead = 0, onSeek }) {
   const svgRef = useRef(null);
-  const dragRef = useRef(null);   // {mode:'pan'|'left'|'right'|'seek', startX, dom0}
-  const seekRef = useRef(false);
+  const wrapRef = useRef(null);
+  const dragRef = useRef(null);   // {mode:'pan'|'left'|'right', startX, dom0}
   const [min, max] = fullRange;
   const span = max - min || 1;
 
@@ -41,10 +41,39 @@ export default function Minimap({ points, fullRange, domain, onDomain,
   }, [points, firstDriver, min, span]);
 
   const toDist = useCallback((clientX) => {
-    const rect = svgRef.current.getBoundingClientRect();
+    const rect = wrapRef.current.getBoundingClientRect();
     const frac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     return min + frac * span;
   }, [min, span]);
+
+  // Playhead drag: HTML overlay (not SVG) so it never gets distorted by
+  // preserveAspectRatio="none", and document-level listeners so dragging
+  // stays smooth even when the cursor leaves the small handle.
+  const seekingRef = useRef(false);
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!seekingRef.current) return;
+      onSeek?.(toDist(e.clientX));
+    };
+    const onUp = (e) => {
+      if (!seekingRef.current) return;
+      seekingRef.current = false;
+      onSeek?.(toDist(e.clientX), true);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+    return () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+  }, [toDist, onSeek]);
+
+  const startSeekDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    seekingRef.current = true;
+    onSeek?.(toDist(e.clientX));
+  };
 
   const onPointerDown = (mode) => (e) => {
     e.preventDefault();
@@ -85,9 +114,12 @@ export default function Minimap({ points, fullRange, domain, onDomain,
   const x1 = ((domain[0] - min) / span) * 100;
   const x2 = ((domain[1] - min) / span) * 100;
 
+  const playheadPct = Math.max(0, Math.min(100, ((playhead - min) / span) * 100));
+
   return (
     <div className="minimap">
-      <svg ref={svgRef} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none"
+      <div className="mm-wrap" ref={wrapRef}>
+        <svg ref={svgRef} viewBox={`0 0 100 ${H}`} preserveAspectRatio="none"
            onPointerMove={onPointerMove} onPointerUp={onPointerUp}
            onPointerLeave={onPointerUp} onClick={onTrackClick}>
         <rect x="0" y="0" width="100" height={H} className="mm-bg" />
@@ -95,28 +127,6 @@ export default function Minimap({ points, fullRange, domain, onDomain,
         {/* dimmed outside-selection shrouds */}
         <rect x="0" y="0" width={x1} height={H} className="mm-shroud" />
         <rect x={x2} y="0" width={100 - x2} height={H} className="mm-shroud" />
-        {/* playhead — current replay position (draggable to seek) */}
-        <g className="mm-playhead"
-           onPointerDown={(e) => {
-             e.stopPropagation();
-             e.target.setPointerCapture?.(e.pointerId);
-             seekRef.current = true;
-           }}
-           onPointerMove={(e) => {
-             if (!seekRef.current) return;
-             onSeek?.(toDist(e.clientX));
-           }}
-           onPointerUp={(e) => {
-             if (seekRef.current) { onSeek?.(toDist(e.clientX), true); }
-             seekRef.current = false;
-           }}>
-          <rect x={Math.max(0, ((playhead - min) / span) * 100) - 1.2}
-                y="0" width="2.4" height={H} className="mm-playhead-hit" />
-          <rect x={Math.max(0, ((playhead - min) / span) * 100) - 0.4}
-                y="0" width="0.8" height={H} className="mm-playhead-line" />
-          <circle cx={((playhead - min) / span) * 100} cy="4" r="2.2"
-                  className="mm-playhead-knob" />
-        </g>
         {/* selection window */}
         <rect x={x1} y="0" width={x2 - x1} height={H} className="mm-window"
               onPointerDown={onPointerDown('pan')} />
@@ -125,6 +135,14 @@ export default function Minimap({ points, fullRange, domain, onDomain,
         <rect x={x2 - 1} y="0" width="1.6" height={H} className="mm-handle"
               onPointerDown={onPointerDown('right')} />
       </svg>
+        {/* Playhead: plain HTML overlay so it can't be distorted by the
+           SVG's preserveAspectRatio="none" stretch. */}
+        <div className="mm-playhead" style={{ left: `${playheadPct}%` }}
+             onPointerDown={startSeekDrag}>
+          <div className="mm-playhead-line" />
+          <div className="mm-playhead-handle" />
+        </div>
+      </div>
       <div className="mm-labels">
         <span>{Math.round(domain[0])} m</span>
         <button className="mm-reset" onClick={() => onDomain([min, max])}>
