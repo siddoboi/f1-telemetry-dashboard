@@ -11,7 +11,8 @@ import Minimap, { wheelZoom } from './Minimap';
 
 export default function TelemetryView({ points, driverMeta, events,
                                         onEventClick, domain, setDomain,
-                                        fullRange, hasBaseline = true }) {
+                                        fullRange, hasBaseline = true,
+                                        focusedEvent = null }) {
   const [driverMode, setDriverMode] = useState('stacked');
   const [channel, setChannel] = useState('speed');
   const areaRef = useRef(null);
@@ -68,7 +69,7 @@ export default function TelemetryView({ points, driverMeta, events,
         <TelemetryCharts
           data={points} driverMeta={driverMeta} events={events}
           onEventClick={onEventClick} domain={domain}
-          channels={[channel]} tall
+          channels={[channel]} tall focusedEvent={focusedEvent}
         />
       ) : (
         drivers.map((drv) => (
@@ -82,6 +83,7 @@ export default function TelemetryView({ points, driverMeta, events,
               onEventClick={onEventClick} domain={domain}
               channels={[channel]}
               tall={drivers.length === 1}
+              focusedEvent={focusedEvent}
             />
           </div>
         ))

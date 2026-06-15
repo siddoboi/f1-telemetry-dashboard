@@ -1,6 +1,6 @@
 // App: owns replay/live state, the shared zoom domain, the tab router, the
 // hover profile overlay, and lap re-picking from the Session view.
-import { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ReplayClient } from './api/client';
 import NavBar from './components/NavBar';
 import ControlPanel from './components/ControlPanel';
@@ -16,6 +16,33 @@ const CHANNELS = ['speed', 'throttle', 'brake', 'rpm', 'gear', 'drs', 'delta'];
 const HOVER_SHOW_MS = 350;
 const HOVER_HIDE_MS = 200;
 
+function ExportMenu() {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div className="export-menu">
+      <button className="export-btn" onClick={() => setOpen((o) => !o)}>
+        ⬇ Export
+      </button>
+      {open && (
+        <>
+          <div className="export-backdrop" onClick={() => setOpen(false)} />
+          <div className="export-overlay">
+            <p className="export-label">Export as</p>
+            <a className="export-option" href="/api/export/csv"
+               onClick={() => setOpen(false)}>
+              CSV <span>telemetry + events as ZIP</span>
+            </a>
+            <a className="export-option" href="/api/export/pdf"
+               onClick={() => setOpen(false)}>
+              PDF <span>multi-page lap report</span>
+            </a>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState('telemetry');
   const [status, setStatus] = useState('');
@@ -23,7 +50,6 @@ export default function App() {
   const [points, setPoints] = useState([]);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [mode, setMode] = useState('replay');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [focusedEvent, setFocusedEvent] = useState(null);
   const [visibleDistance, setVisibleDistance] = useState(0);
@@ -33,7 +59,6 @@ export default function App() {
   const [hoverProfile, setHoverProfile] = useState(null); // {code, rect}
   const clientRef = useRef(null);
   const bufferRef = useRef([]);
-  const liveEventsRef = useRef([]);
   const lastRequestRef = useRef(null);
   const hoverTimer = useRef(null);
 
@@ -64,10 +89,9 @@ export default function App() {
   };
 
   const visibleEvents = useMemo(() => {
-    if (mode === 'live') return liveEventsRef.current;
     return (meta?.events || [])
       .filter((e) => e.start_distance <= visibleDistance);
-  }, [meta, visibleDistance, mode]);
+  }, [meta, visibleDistance]);
 
   const flush = () => {
     const buffered = bufferRef.current;
@@ -76,25 +100,7 @@ export default function App() {
     setPoints((prev) => {
       let next = [...prev];
       for (const frame of buffered) {
-        if (frame.mode === 'live') {
-          const p = { distance: 0 };
-          for (const [drv, vals] of Object.entries(frame.drivers)) {
-            p.distance = Math.max(p.distance, vals.distance);
-            for (const ch of CHANNELS) p[`${drv}_${ch}`] = vals[ch];
-            if (vals.anomaly) {
-              liveEventsRef.current = [...liveEventsRef.current.slice(-49), {
-                driver: drv, start_distance: vals.distance,
-                end_distance: vals.distance + 10,
-                peak_score: vals.anomaly_score,
-                label: vals.anomaly_label || 'Anomaly',
-                diagnosis: `${vals.anomaly_label} flagged live at `
-                  + `${Math.round(vals.distance)} m (rules engine).`,
-              }];
-            }
-          }
-          next.push(p);
-          if (next.length > 4000) next = next.slice(-4000);
-        } else {
+        {
           const i = frame.index;
           // grow the array when no baseline pre-filled it (baseline OFF)
           while (next.length <= i) next.push({ distance: 0 });
@@ -158,7 +164,7 @@ export default function App() {
 
   const handleStart = (request) => {
     setStatus('Connecting...');
-    reset('replay');
+    reset();
     lastRequestRef.current = request;
     setSessionRef({ year: request.year, round: request.round,
                     session: request.session });
@@ -167,19 +173,11 @@ export default function App() {
     clientRef.current = client;
   };
 
-  const handleStartLive = (drivers) => {
-    setStatus('Connecting to live feed...');
-    reset('live');
-    setSessionRef(null);
-    const client = makeClient(true);
-    client.startLive(drivers);
-    clientRef.current = client;
-  };
 
   // HISTORY tab: replay saved laps straight from MongoDB (no FastF1)
   const handleLoadHistory = (laps) => {
     setStatus('Loading saved laps...');
-    reset('replay');
+    reset();
     setSessionRef(null);              // profiles/session need FastF1 context
     const client = makeClient(false);
     client.startHistory(laps);
@@ -198,12 +196,12 @@ export default function App() {
     handleStart(req);
   };
 
-  const reset = (m) => {
+  const reset = () => {
     clientRef.current?.stop();
     setMeta(null); setPoints([]); setRunning(true); setPaused(false);
     setVisibleDistance(0); setDriverPositions({});
-    bufferRef.current = []; liveEventsRef.current = [];
-    setMode(m); setFocusedEvent(null); setDomain(null);
+    bufferRef.current = [];
+    setFocusedEvent(null); setDomain(null);
     setHoverProfile(null);
   };
 
@@ -225,28 +223,19 @@ export default function App() {
 
   return (
     <div className="app">
-      <NavBar tab={tab} onTab={setTab} live={mode === 'live' && running} />
+      <NavBar tab={tab} onTab={setTab} />
       <div className="layout">
         <ControlPanel
           onStart={handleStart}
-          onStartLive={handleStartLive}
           onPause={() => { clientRef.current?.pause(); setPaused(true); }}
           onResume={() => { clientRef.current?.resume(); setPaused(false); }}
           onSpeed={(x) => clientRef.current?.setSpeed(x)}
-          running={running} paused={paused} mode={mode}
+          running={running} paused={paused}
         />
 
         <main className="main">
-          {meta && mode === 'replay' && (
+          {meta && (
             <header className="lap-header">
-              <div className="export-btns">
-                <a className="export-btn" href="/api/export/csv"
-                   title="Download telemetry.csv + events.csv as a ZIP">
-                  ⬇ CSV</a>
-                <a className="export-btn" href="/api/export/pdf"
-                   title="Download the multi-page PDF lap report">
-                  ⬇ PDF</a>
-              </div>
               {Object.entries(meta.drivers).map(([drv, info]) => (
                 <div className="lap-card hoverable" key={drv}
                      style={{ '--team': info.meta.color }}
@@ -273,16 +262,6 @@ export default function App() {
               ))}
             </header>
           )}
-          {meta && mode === 'live' && (
-            <header className="lap-header">
-              <div className="lap-card live">
-                <span className="lap-drv">{meta.session_name}</span>
-                <span>{meta.circuit}</span>
-                <span className="lap-base">distance integrated from speed ·
-                  rules-engine anomalies</span>
-              </div>
-            </header>
-          )}
 
           {status && <div className="status-bar">{status}</div>}
 
@@ -291,10 +270,10 @@ export default function App() {
             <TelemetryView
               points={points} driverMeta={driverMeta}
               events={visibleEvents} onEventClick={focusEvent}
+              focusedEvent={focusedEvent}
               domain={effDomain} setDomain={handleSetDomain}
               fullRange={fullRange}
-              hasBaseline={!!meta && meta.mode !== 'live'
-                           && meta.baseline_mode !== 'off'}
+              hasBaseline={!!meta && meta.baseline_mode !== 'off'}
             />
             </ErrorBoundary>
           </div>
@@ -303,7 +282,7 @@ export default function App() {
             <TrackMapView
               track={meta?.track} driverMeta={driverMeta}
               driverPositions={driverPositions} events={visibleEvents}
-              onEventClick={focusEvent}
+              onEventClick={focusEvent} focusedEvent={focusedEvent}
             />
             </ErrorBoundary>
           </div>
@@ -327,7 +306,8 @@ export default function App() {
           open={sidebarOpen}
           onToggle={() => setSidebarOpen((o) => !o)}
           focused={focusedEvent}
-        />
+          onEventClick={focusEvent}
+/>
       </div>
 
       {hoverProfile && (

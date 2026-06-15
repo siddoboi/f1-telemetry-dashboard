@@ -4,14 +4,22 @@
 import { useEffect, useRef } from 'react';
 
 export default function AnomalySidebar({ events, validation, driverMeta,
-                                         open, onToggle, focused }) {
+                                         open, onToggle, focused,
+                                         onEventClick }) {
   const refs = useRef({});
   useEffect(() => {
     if (focused == null) return;
-    const idx = events.indexOf(focused);
-    refs.current[idx]?.scrollIntoView({ behavior: 'smooth',
-                                        block: 'center' });
-  }, [focused, events]);
+    const idx = events.findIndex((e) =>
+      e.driver === focused.driver
+      && e.start_distance === focused.start_distance);
+    if (idx === -1) return;
+    const t = setTimeout(() => {
+      refs.current[idx]?.scrollIntoView({ behavior: 'smooth',
+                                          block: 'center' });
+    }, 60);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused]);
 
   return (
     <aside className={`sidebar ${open ? 'open' : ''}`}>
@@ -31,9 +39,14 @@ export default function AnomalySidebar({ events, validation, driverMeta,
 
           {events.map((ev, i) => (
             <div key={i}
-                 ref={(el) => { refs.current[i] = el; }}
-                 className={`event-card ${focused === ev ? 'focused' : ''}`}
-                 style={{ '--team': driverMeta[ev.driver]?.color || '#888' }}>
+                  ref={(el) => { refs.current[i] = el; }}
+                  className={`event-card ${focused
+                   && focused.driver === ev.driver
+                   && focused.start_distance === ev.start_distance
+                   ? 'focused' : ''}`}
+                  style={{ '--team': driverMeta[ev.driver]?.color || '#888',
+                  cursor: 'pointer' }}
+                  onClick={() => onEventClick?.(ev)}>
               <div className="event-head">
                 <span className="event-driver">{ev.driver}</span>
                 <span className="event-score">

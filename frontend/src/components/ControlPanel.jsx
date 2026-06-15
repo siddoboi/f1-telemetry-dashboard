@@ -1,15 +1,14 @@
 // Cascading selector chain: Year -> Event -> Session -> Drivers (max 5) ->
-// Laps -> Baseline. Plus live mode: if OpenF1 reports an active session, a
-// GO LIVE section appears with its own driver picker.
+// Laps -> Baseline. (Live mode removed - OpenF1 live feed requires a paid
+// Sponsor subscription; all data here is historical via FastF1.)
 import { useEffect, useState } from 'react';
 import { api, getSchedule, getSessions, getDrivers, getLaps } from '../api/client';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018];
 const MAX_DRIVERS = 5;
 
-export default function ControlPanel({ onStart, onStartLive, onPause,
-                                       onResume, onSpeed, running, paused,
-                                       mode }) {
+export default function ControlPanel({ onStart, onPause,
+                                       onResume, onSpeed, running, paused}) {
   const [year, setYear] = useState(2025);
   const [events, setEvents] = useState([]);
   const [round, setRound] = useState('');
@@ -22,26 +21,8 @@ export default function ControlPanel({ onStart, onStartLive, onPause,
   const [baseline, setBaseline] = useState('session_optimal');
   const [speed, setSpeedLocal] = useState(1);
   const [loading, setLoading] = useState('');
-  const [live, setLive] = useState(null);            // /api/live/status
-  const [liveDrivers, setLiveDrivers] = useState([]);
-  const [liveSelected, setLiveSelected] = useState([]);
 
-  // poll live status every 60 s
-  useEffect(() => {
-    let alive = true;
-    const check = () => api('/live/status')
-      .then((s) => alive && setLive(s.live ? s : null))
-      .catch(() => alive && setLive(null));
-    check();
-    const id = setInterval(check, 60000);
-    return () => { alive = false; clearInterval(id); };
-  }, []);
 
-  useEffect(() => {
-    if (!live) { setLiveDrivers([]); setLiveSelected([]); return; }
-    api(`/live/drivers/${live.session_key}`)
-      .then(setLiveDrivers).catch(() => {});
-  }, [live]);
 
   useEffect(() => {
     setEvents([]); setRound('');
@@ -92,29 +73,6 @@ export default function ControlPanel({ onStart, onStartLive, onPause,
 
   return (
     <aside className="control-panel">
-      {live && (
-        <div className="live-box">
-          <span className="live-badge">● LIVE NOW</span>
-          <p className="live-name">{live.session_name} · {live.circuit}</p>
-          {liveDrivers.length > 0 && (
-            <div className="driver-grid">
-              {liveDrivers.map((d) => (
-                <button key={d.code}
-                        className={`driver-chip ${liveSelected.includes(d.code) ? 'on' : ''}`}
-                        style={{ '--team': d.color }}
-                        onClick={() => toggle(liveSelected, setLiveSelected)(d.code)}>
-                  {d.code}
-                </button>
-              ))}
-            </div>
-          )}
-          <button className="start-btn live"
-                  disabled={!liveSelected.length}
-                  onClick={() => onStartLive(liveSelected)}>
-            GO LIVE (≈30 s delay)
-          </button>
-        </div>
-      )}
 
       <label className="field">Season
         <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
@@ -195,10 +153,10 @@ export default function ControlPanel({ onStart, onStartLive, onPause,
       </div>
 
       <button className="start-btn" disabled={!ready} onClick={start}>
-        {running && mode === 'replay' ? 'Restart replay' : 'Start replay'}
+        {running ? 'Restart replay' : 'Start replay'}
       </button>
 
-      {running && mode === 'replay' && (
+      {running && (
         <div className="replay-controls">
           <button onClick={paused ? onResume : onPause}>
             {paused ? 'Resume' : 'Pause'}

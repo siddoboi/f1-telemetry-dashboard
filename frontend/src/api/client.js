@@ -40,9 +40,6 @@ export class ReplayClient {
     this._open({ action: 'start', ...request });
   }
 
-  startLive(drivers) {
-    this._open({ action: 'start_live', drivers });
-  }
 
   startHistory(laps) {
     this._open({ action: 'start_history', laps });

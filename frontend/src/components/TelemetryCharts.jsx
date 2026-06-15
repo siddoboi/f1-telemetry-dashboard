@@ -20,7 +20,7 @@ export const CHART_DEFS = [
 
 export default function TelemetryCharts({ data, driverMeta, events,
                                           onEventClick, domain, channels,
-                                          tall = false }) {
+                                          tall = false, focusedEvent = null }) {
   const drivers = Object.keys(driverMeta);
 
   const windowed = useMemo(() => {
@@ -67,18 +67,24 @@ export default function TelemetryCharts({ data, driverMeta, events,
                      : value, name]}
               />
 
-              {events.map((ev, i) => (
-                <ReferenceArea key={i}
-                  x1={Math.max(ev.start_distance, windowed[0].distance)}
-                  x2={Math.min(ev.end_distance,
-                               windowed[windowed.length - 1].distance)}
-                  fill={driverMeta[ev.driver]?.color || '#ff4444'}
-                  fillOpacity={0.15}
-                  stroke={driverMeta[ev.driver]?.color || '#ff4444'}
-                  strokeOpacity={0.5}
-                  onClick={() => onEventClick(ev)}
-                  style={{ cursor: 'pointer' }} />
-              ))}
+              {events.map((ev, i) => {
+                const isFocused = focusedEvent
+                  && ev.driver === focusedEvent.driver
+                  && ev.start_distance === focusedEvent.start_distance;
+                return (
+                  <ReferenceArea key={i}
+                    x1={Math.max(ev.start_distance, windowed[0].distance)}
+                    x2={Math.min(ev.end_distance,
+                                 windowed[windowed.length - 1].distance)}
+                    fill={driverMeta[ev.driver]?.color || '#ff4444'}
+                    fillOpacity={isFocused ? 0.38 : 0.15}
+                    stroke={driverMeta[ev.driver]?.color || '#ff4444'}
+                    strokeOpacity={isFocused ? 1 : 0.5}
+                    strokeWidth={isFocused ? 2 : 1}
+                    onClick={() => onEventClick(ev)}
+                    style={{ cursor: 'pointer' }} />
+                );
+              })}
 
               {drivers.map((drv) => (
                 <Line key={`b-${drv}`} dataKey={`base_${drv}_${def.key}`}

@@ -8,7 +8,8 @@ import { useMemo, useState } from 'react';
 const PAD = 30;
 
 export default function TrackMapView({ track, driverMeta, driverPositions,
-                                       events, onEventClick }) {
+                                       events, onEventClick,
+                                       focusedEvent = null }) {
   const [hover, setHover] = useState(null);
 
   const geom = useMemo(() => {
@@ -67,14 +68,19 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
         {events.map((ev, i) => {
           const p = geom.lookupByDist(ev.start_distance);
           const c = driverMeta[ev.driver]?.color || '#ff4444';
+          const isFocused = focusedEvent
+            && ev.driver === focusedEvent.driver
+            && ev.start_distance === focusedEvent.start_distance;
           return (
             <g key={i} transform={`translate(${p.x},${p.y})`}
-               className="anomaly-marker"
+               className={`anomaly-marker ${isFocused ? 'focused' : ''}`}
                onClick={() => onEventClick(ev)}
                onMouseEnter={() => setHover(ev)}
                onMouseLeave={() => setHover(null)}>
-              <circle r="11" fill={c} opacity="0.22" />
-              <circle r="5" fill={c} stroke="#0b0c0f" strokeWidth="1.5" />
+              <circle r={isFocused ? 16 : 11} fill={c}
+                      opacity={isFocused ? 0.35 : 0.22} />
+              <circle r={isFocused ? 7 : 5} fill={c}
+                      stroke="#0b0c0f" strokeWidth="1.5" />
             </g>
           );
         })}

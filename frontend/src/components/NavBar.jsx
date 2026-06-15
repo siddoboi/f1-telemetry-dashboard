@@ -7,7 +7,7 @@ const TABS = [
   { id: 'history', label: 'HISTORY' },
 ];
 
-export default function NavBar({ tab, onTab, live }) {
+export default function NavBar({ tab, onTab }) {
   return (
     <nav className="navbar">
       <span className="nav-brand">PIT WALL</span>
@@ -20,7 +20,6 @@ export default function NavBar({ tab, onTab, live }) {
           </button>
         ))}
       </div>
-      {live && <span className="live-badge">● LIVE · DELAYED FEED</span>}
     </nav>
   );
 }
