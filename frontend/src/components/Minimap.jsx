@@ -8,9 +8,10 @@ import { useCallback, useMemo, useRef } from 'react';
 const H = 56;
 
 export default function Minimap({ points, fullRange, domain, onDomain,
-                                  driverMeta }) {
+                                  driverMeta, playhead = 0, onSeek }) {
   const svgRef = useRef(null);
-  const dragRef = useRef(null);   // {mode:'pan'|'left'|'right', startX, dom0}
+  const dragRef = useRef(null);   // {mode:'pan'|'left'|'right'|'seek', startX, dom0}
+  const seekRef = useRef(false);
   const [min, max] = fullRange;
   const span = max - min || 1;
 
@@ -94,6 +95,28 @@ export default function Minimap({ points, fullRange, domain, onDomain,
         {/* dimmed outside-selection shrouds */}
         <rect x="0" y="0" width={x1} height={H} className="mm-shroud" />
         <rect x={x2} y="0" width={100 - x2} height={H} className="mm-shroud" />
+        {/* playhead — current replay position (draggable to seek) */}
+        <g className="mm-playhead"
+           onPointerDown={(e) => {
+             e.stopPropagation();
+             e.target.setPointerCapture?.(e.pointerId);
+             seekRef.current = true;
+           }}
+           onPointerMove={(e) => {
+             if (!seekRef.current) return;
+             onSeek?.(toDist(e.clientX));
+           }}
+           onPointerUp={(e) => {
+             if (seekRef.current) { onSeek?.(toDist(e.clientX), true); }
+             seekRef.current = false;
+           }}>
+          <rect x={Math.max(0, ((playhead - min) / span) * 100) - 1.2}
+                y="0" width="2.4" height={H} className="mm-playhead-hit" />
+          <rect x={Math.max(0, ((playhead - min) / span) * 100) - 0.4}
+                y="0" width="0.8" height={H} className="mm-playhead-line" />
+          <circle cx={((playhead - min) / span) * 100} cy="4" r="2.2"
+                  className="mm-playhead-knob" />
+        </g>
         {/* selection window */}
         <rect x={x1} y="0" width={x2 - x1} height={H} className="mm-window"
               onPointerDown={onPointerDown('pan')} />

@@ -6,7 +6,7 @@ export async function api(path) {
   try {
     res = await fetch(`/api${path}`);
   } catch {
-    throw new Error('Network error - is the backend running on port 8000?');
+    throw new Error('Network error — is the backend running on port 8000?');
   }
   if (!res.ok) {
     // backend returns {error, detail, path}; surface detail when present
@@ -55,7 +55,7 @@ export class ReplayClient {
       const h = this.handlers;
       if (msg.type === 'status') h.onStatus?.(msg);
       else if (msg.type === 'meta') h.onMeta?.(msg);
-      else if (msg.type === 'frame') h.onFrame?.(msg);
+      else if (msg.type === 'frame' || msg.type === 'seek_fill') h.onFrame?.(msg);
       else if (msg.type === 'complete') h.onComplete?.(msg);
       else if (msg.type === 'error') h.onError?.(msg);
     };
@@ -72,6 +72,7 @@ export class ReplayClient {
   pause() { this.send('pause'); }
   resume() { this.send('resume'); }
   setSpeed(x) { this.send('speed', x); }
+  seek(distance) { this.send('seek', distance); }
 
   stop() {
     if (this.ws) {

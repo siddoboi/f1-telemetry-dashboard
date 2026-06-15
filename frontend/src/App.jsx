@@ -219,6 +219,29 @@ export default function App() {
   };
   const overlayEnter = () => clearTimeout(hoverTimer.current);
 
+  // Seek: backward = frontend-only cursor move (data already buffered);
+  // forward = ask the backend to fast-emit the skipped frames.
+  const handleSeek = (distance, committed = false) => {
+    const d = Math.max(fullRange[0], Math.min(fullRange[1], distance));
+    if (d <= visibleDistance) {
+      // backward (or in-range): just move the cursor + driver positions
+      setVisibleDistance(d);
+      const pos = {};
+      const idx = points.findIndex((p) => p.distance >= d);
+      const row = points[idx < 0 ? points.length - 1 : idx];
+      for (const drv of Object.keys(driverMeta)) {
+        pos[drv] = { distance: d,
+                     x: row?.[`${drv}_x`] ?? null,
+                     y: row?.[`${drv}_y`] ?? null };
+      }
+      setDriverPositions(pos);
+    } else if (committed) {
+      // forward seek only fires the backend jump on release, not mid-drag
+      clientRef.current?.seek(d);
+      setVisibleDistance(d);
+    }
+  };
+
   const focusEvent = (ev) => { setFocusedEvent(ev); setSidebarOpen(true); };
 
   return (
@@ -271,6 +294,7 @@ export default function App() {
               points={points} driverMeta={driverMeta}
               events={visibleEvents} onEventClick={focusEvent}
               focusedEvent={focusedEvent}
+              playhead={visibleDistance} onSeek={handleSeek}
               domain={effDomain} setDomain={handleSetDomain}
               fullRange={fullRange}
               hasBaseline={!!meta && meta.baseline_mode !== 'off'}
@@ -307,7 +331,7 @@ export default function App() {
           onToggle={() => setSidebarOpen((o) => !o)}
           focused={focusedEvent}
           onEventClick={focusEvent}
-/>
+        />
       </div>
 
       {hoverProfile && (

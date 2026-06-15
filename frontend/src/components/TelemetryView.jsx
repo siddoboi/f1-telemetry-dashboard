@@ -12,7 +12,8 @@ import Minimap, { wheelZoom } from './Minimap';
 export default function TelemetryView({ points, driverMeta, events,
                                         onEventClick, domain, setDomain,
                                         fullRange, hasBaseline = true,
-                                        focusedEvent = null }) {
+                                        focusedEvent = null,
+                                        playhead = 0, onSeek }) {
   const [driverMode, setDriverMode] = useState('stacked');
   const [channel, setChannel] = useState('speed');
   const areaRef = useRef(null);
@@ -92,6 +93,7 @@ export default function TelemetryView({ points, driverMeta, events,
       <Minimap
         points={points} fullRange={fullRange}
         domain={domain} onDomain={setDomain} driverMeta={driverMeta}
+        playhead={playhead} onSeek={onSeek}
       />
       <p className="hint zoom-hint">Ctrl + scroll to zoom · drag the window
       to pan · drag its edges to resize</p>

@@ -612,3 +612,10 @@ select:focus-visible, button:focus-visible {
   font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
 .export-option span { font-size: 10px; font-weight: 400; color: var(--text-dim); }
 .export-option:hover { border-color: var(--text-dim); background: var(--panel); }
+
+/* timeline playhead (seek) */
+.mm-playhead { cursor: ew-resize; }
+.mm-playhead-hit { fill: transparent; }
+.mm-playhead-line { fill: var(--text); }
+.mm-playhead-knob { fill: var(--text); stroke: var(--bg); stroke-width: 0.5; }
+.mm-playhead:hover .mm-playhead-line { fill: #fff; }

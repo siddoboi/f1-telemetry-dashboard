@@ -8,7 +8,7 @@ const YEARS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018];
 const MAX_DRIVERS = 5;
 
 export default function ControlPanel({ onStart, onPause,
-                                       onResume, onSpeed, running, paused}) {
+                                       onResume, onSpeed, running, paused }) {
   const [year, setYear] = useState(2025);
   const [events, setEvents] = useState([]);
   const [round, setRound] = useState('');

@@ -39,14 +39,14 @@ export default function AnomalySidebar({ events, validation, driverMeta,
 
           {events.map((ev, i) => (
             <div key={i}
-                  ref={(el) => { refs.current[i] = el; }}
-                  className={`event-card ${focused
+                 ref={(el) => { refs.current[i] = el; }}
+                 className={`event-card ${focused
                    && focused.driver === ev.driver
                    && focused.start_distance === ev.start_distance
                    ? 'focused' : ''}`}
-                  style={{ '--team': driverMeta[ev.driver]?.color || '#888',
-                  cursor: 'pointer' }}
-                  onClick={() => onEventClick?.(ev)}>
+                 style={{ '--team': driverMeta[ev.driver]?.color || '#888',
+                          cursor: onEventClick ? 'pointer' : 'default' }}
+                 onClick={() => onEventClick?.(ev)}>
               <div className="event-head">
                 <span className="event-driver">{ev.driver}</span>
                 <span className="event-score">
@@ -75,7 +75,7 @@ export default function AnomalySidebar({ events, validation, driverMeta,
                   <span>
                     Precision vs rules:{' '}
                     {v.precision_vs_rules != null
-                      ? `${(v.precision_vs_rules * 100).toFixed(0)}%` : '-'}
+                      ? `${(v.precision_vs_rules * 100).toFixed(0)}%` : '—'}
                   </span>
                 </div>
               ))}
