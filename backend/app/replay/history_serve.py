@@ -105,7 +105,14 @@ def build_history_comparison(lap_requests: list[dict],
             "lap_time": _fmt(info["lap_time_s"]),
             "baseline_driver": baseline_key,
             "baseline_lap_time": meta["baseline_lap_time"],
-            "baseline": {},
+            "baseline": {
+                "distance": base_df["distance"].round(1).tolist(),
+                "speed": base_df["speed"].round(1).tolist(),
+                "throttle": base_df["throttle"].round(1).tolist(),
+                "brake": base_df["brake"].round(1).tolist(),
+                "rpm": base_df["rpm"].round(0).tolist(),
+                "gear": base_df["gear"].tolist(),
+            },
         }
 
     meta["events"].sort(key=lambda e: e["start_distance"])

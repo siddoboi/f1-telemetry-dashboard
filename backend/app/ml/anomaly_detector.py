@@ -119,8 +119,9 @@ def extract_events(scored: pd.DataFrame, driver: str) -> list[dict]:
             in_evt, start, peak, labels = True, row["distance"], 0.0, []
         if in_evt:
             peak = max(peak, float(row["anomaly_score"]))
-            if row["anomaly_label"]:
-                labels.append(row["anomaly_label"])
+            lbl = row["anomaly_label"]
+            if isinstance(lbl, str) and lbl:
+                labels.append(lbl)
             if not row["anomaly"]:
                 events.append(_event(driver, start, row["distance"],
                                      peak, labels))

@@ -48,15 +48,6 @@ async def connect() -> None:
         log.warning("MongoDB unavailable (%s). Running without persistence.",
                     exc.__class__.__name__)
 
-    try:
-            await db[config.TELEMETRY_COLLECTION].create_index(
-                [("meta.year", 1), ("meta.round", 1),
-                 ("meta.session", 1), ("meta.driver", 1)])
-            await db[config.SESSION_META_COLLECTION].create_index(
-                [("key.year", 1), ("key.round", 1)])
-    except PyMongoError:
-            pass
-
 
 def is_available() -> bool:
     return _available
