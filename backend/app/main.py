@@ -161,7 +161,8 @@ async def export_pdf():
 def _prepare(req: ReplayRequest) -> dict:
     """Blocking FastF1 download + ML scoring. Runs in a threadpool."""
     comp = f1.build_comparison(req.year, req.round, req.session, req.drivers,
-                               req.lap_numbers, req.baseline_mode)
+                               req.lap_numbers, req.baseline_mode,
+                               req.baseline_override)
     meta = {"type": "meta", "mode": "replay",
             "baseline_mode": req.baseline_mode,
             "baseline_owner": comp.get("baseline_owner"),

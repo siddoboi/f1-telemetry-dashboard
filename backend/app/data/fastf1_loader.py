@@ -204,11 +204,13 @@ def _int_or_none(v):
 
 def build_comparison(year: int, rnd: int, session: str, drivers: list[str],
                      lap_numbers: dict[str, int] | None,
-                     baseline_mode: str) -> dict:
+                     baseline_mode: str,
+                     baseline_override: dict | None = None) -> dict:
     """
     The main data-prep entry point. Returns, for every requested driver:
       - the aligned comparison lap
-      - the aligned baseline lap (shared session-optimal OR personal best)
+      - the aligned baseline lap (session-optimal, personal-best, OFF, or a
+        custom lap that may come from a completely different session)
     plus metadata the frontend needs (lap times, baseline owner, colors).
     """
     ses = load_session(year, rnd, session)
@@ -225,6 +227,21 @@ def build_comparison(year: int, rnd: int, session: str, drivers: list[str],
         }
         result["baseline_owner"] = shared_baseline["driver"]
         result["baseline_lap_time"] = shared_baseline["lap_time"]
+    elif baseline_mode == "custom" and baseline_override:
+        # Load the baseline lap from its own session (may differ from the
+        # comparison session entirely - different driver, event, even year).
+        ov = baseline_override
+        b_ses = load_session(ov["year"], ov["round"], ov["session"])
+        b_lap = _pick_lap(b_ses, ov["driver"], ov.get("lap"))
+        label = (f'{ov["driver"]} · {ov["year"]} R{ov["round"]} '
+                 f'{ov["session"]}')
+        shared_baseline = {
+            "driver": label,
+            "lap_time": _fmt_laptime(b_lap["LapTime"]),
+            "df": lap_to_distance_grid(b_lap),
+        }
+        result["baseline_owner"] = label
+        result["baseline_lap_time"] = shared_baseline["lap_time"]
 
     driver_meta = {d["code"]: d for d in get_drivers(year, rnd, session)}
 
@@ -240,7 +257,7 @@ def build_comparison(year: int, rnd: int, session: str, drivers: list[str],
         elif baseline_mode == "off":
             base = None          # no baseline traces, rules-only anomalies
         else:
-            base = shared_baseline
+            base = shared_baseline   # session_optimal OR custom
 
         result["drivers"][drv] = {
             "meta": driver_meta.get(drv, {"code": drv, "color": "#888888"}),
