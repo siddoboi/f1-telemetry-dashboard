@@ -734,3 +734,9 @@ select:focus-visible, button:focus-visible {
 .mm-playhead:hover .mm-playhead-line,
 .mm-playhead:hover .mm-playhead-handle { background: #fff; }
 .mm-playhead:active .mm-playhead-handle { transform: rotate(45deg) scale(1.15); }
+
+/* schema v2 "full cache" badge in the history browser */
+.lap-v2 {
+  color: #f5c518; margin-left: 5px; font-size: 11px;
+  vertical-align: middle;
+}

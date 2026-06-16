@@ -84,7 +84,13 @@ export default function HistoryView({ onLoadHistory }) {
                         disabled={disabledGroup
                                   || (!isSel(r) && selected.length >= MAX)}
                         onClick={() => toggle(r)}>
-                  <span className="lap-num mono">{r.driver}</span>
+                  <span className="lap-num mono">{r.driver}
+                    {r.schema_version >= 2 && (
+                      <span className="lap-v2" title="Full cache: track map,
+                        events and baseline stored — loads instantly and
+                        completely">★</span>
+                    )}
+                  </span>
                   <span className="lap-time">
                     {r.lap === -1 ? 'fastest lap' : `lap ${r.lap}`}
                   </span>

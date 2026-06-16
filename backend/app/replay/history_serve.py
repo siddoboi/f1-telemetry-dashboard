@@ -75,13 +75,18 @@ def build_history_comparison(lap_requests: list[dict],
 
     for key, info in laps.items():
         df = info["df"].copy()
-        # recover flags + labels from stored scores; rules need no baseline
+        # recover flags from stored scores
         df["anomaly"] = df["anomaly_score"] >= config.ANOMALY_THRESHOLD
-        df = physics_rules.apply_rules(df)
-        dilated = df["rule_label"].ffill(limit=3).bfill(limit=3)
-        df["anomaly_label"] = np.where(
-            df["anomaly"], dilated.fillna("Atypical telemetry pattern"),
-            None)
+        # v2 laps already carry anomaly_label; only re-derive it for v1 laps
+        # (or rows where it is missing/blank) via the physics rules
+        needs_labels = ("anomaly_label" not in df.columns
+                        or df["anomaly_label"].isna().all())
+        if needs_labels:
+            df = physics_rules.apply_rules(df)
+            dilated = df["rule_label"].ffill(limit=3).bfill(limit=3)
+            df["anomaly_label"] = np.where(
+                df["anomaly"], dilated.fillna("Atypical telemetry pattern"),
+                None)
         # delta-time vs the fastest selected lap
         base_t = base_df["time_s"].to_numpy()
         n = min(len(df), len(base_t))
@@ -100,15 +105,18 @@ def build_history_comparison(lap_requests: list[dict],
             "lap_time": _fmt(info["lap_time_s"]),
             "baseline_driver": baseline_key,
             "baseline_lap_time": meta["baseline_lap_time"],
-            "baseline": {
-                "distance": base_df["distance"].round(1).tolist(),
-                "speed": base_df["speed"].round(1).tolist(),
-                "throttle": base_df["throttle"].round(1).tolist(),
-                "brake": base_df["brake"].round(1).tolist(),
-                "rpm": base_df["rpm"].round(0).tolist(),
-                "gear": base_df["gear"].tolist(),
-            },
+            "baseline": {},
         }
 
     meta["events"].sort(key=lambda e: e["start_distance"])
+
+    # v2: if the baseline lap carries stored GPS, the Track Map can render in
+    # history mode. v1 laps have no x/y, so track stays None (empty state).
+    if {"x", "y"}.issubset(base_df.columns) and base_df["x"].notna().any():
+        meta["track"] = {
+            "distance": base_df["distance"].round(1).tolist(),
+            "x": base_df["x"].round(1).tolist(),
+            "y": base_df["y"].round(1).tolist(),
+        }
+
     return {"meta": meta, "scored_laps": scored_laps}

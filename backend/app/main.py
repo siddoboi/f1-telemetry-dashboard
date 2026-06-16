@@ -250,7 +250,8 @@ async def ws_replay(ws: WebSocket):
                 engine = ReplayEngine(prepared["scored_laps"],
                                       req.tick_rate_hz)
                 stream_task = asyncio.create_task(
-                    _stream(ws, engine, req, prepared["scored_laps"]))
+                    _stream(ws, engine, req, prepared["scored_laps"],
+                            prepared["meta"]))
 
             elif action == "start_history":
                 if stream_task:
@@ -320,16 +321,32 @@ async def _stream_simple(ws: WebSocket, engine: ReplayEngine) -> None:
 
 
 async def _stream(ws: WebSocket, engine: ReplayEngine,
-                  req: ReplayRequest, scored_laps) -> None:
+                  req: ReplayRequest, scored_laps, full_meta: dict) -> None:
     try:
         async for frame in engine.frames():
             await ws.send_json(frame)
+        # persist frames + per-lap v2 meta so a future load of this session
+        # serves instantly with track map, events and baseline intact
         for drv, df in scored_laps.items():
+            lap_no = (req.lap_numbers.get(drv, -1)
+                      if req.lap_numbers else -1)
             frames = df[[c for c in FRAME_COLS
                          if c in df.columns]].to_dict("records")
             await database.save_lap_frames(
-                req.year, req.round, req.session, drv,
-                req.lap_numbers.get(drv, -1) if req.lap_numbers else -1,
-                frames)
+                req.year, req.round, req.session, drv, lap_no, frames)
+
+            drv_meta = full_meta.get("drivers", {}).get(drv, {})
+            lap_events = [e for e in full_meta.get("events", [])
+                          if e.get("driver") == drv]
+            await database.save_lap_meta(
+                req.year, req.round, req.session, drv, lap_no, {
+                    "events": lap_events,
+                    "baseline": drv_meta.get("baseline", {}),
+                    "baseline_driver": drv_meta.get("baseline_driver"),
+                    "baseline_lap_time": drv_meta.get("baseline_lap_time"),
+                    "lap_time": drv_meta.get("lap_time"),
+                    "driver_meta": drv_meta.get("meta", {}),
+                    "validation": full_meta.get("validation", {}).get(drv),
+                })
     except (WebSocketDisconnect, RuntimeError, asyncio.CancelledError):
         engine.stop()

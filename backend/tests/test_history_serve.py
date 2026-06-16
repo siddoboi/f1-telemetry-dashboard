@@ -51,3 +51,32 @@ def test_track_is_none_and_mode_history():
     out = build_history_comparison([dict(REQ)], [make_mongo_lap()])
     assert out["meta"]["track"] is None
     assert out["meta"]["mode"] == "history"
+
+
+# ---- Phase 12: schema v2 (GPS track map in history) ----
+
+def test_v1_lap_has_no_track_map():
+    """Legacy frames without x/y must leave track None (empty state)."""
+    out = build_history_comparison([dict(REQ)], [make_mongo_lap()])
+    assert out["meta"]["track"] is None
+
+
+def test_v2_lap_builds_track_map_from_gps():
+    """A lap carrying stored x/y renders the track map in history mode."""
+    out = build_history_comparison(
+        [dict(REQ)], [make_mongo_lap(gps=True)])
+    track = out["meta"]["track"]
+    assert track is not None
+    assert len(track["x"]) == len(track["distance"]) > 0
+    assert len(track["y"]) == len(track["x"])
+
+
+def test_mixed_v1_v2_uses_baseline_gps():
+    """Track map follows the baseline (fastest) lap's GPS when present."""
+    fast_gps = make_mongo_lap(gps=True)               # baseline (fast)
+    slow_plain = make_mongo_lap(slow=3.0)             # no gps
+    reqs = [dict(REQ), {**REQ, "driver": "PER", "lap": 69}]
+    out = build_history_comparison(reqs, [fast_gps, slow_plain])
+    # VER (fast, has GPS) is the baseline -> track map present
+    assert out["meta"]["baseline_owner"] == "VER"
+    assert out["meta"]["track"] is not None

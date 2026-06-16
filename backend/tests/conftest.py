@@ -50,19 +50,24 @@ def comparison_lap(rng):
     return df
 
 
-def make_mongo_lap(n=300, slow=0.0, spike_at=None):
+def make_mongo_lap(n=300, slow=0.0, spike_at=None, gps=False):
     """Fake saved-lap documents shaped exactly like database.save_lap_frames
-    writes them (minus ts/meta, which load_lap_frames projects away)."""
+    writes them (minus ts/meta, which load_lap_frames projects away).
+    When gps=True, includes x/y like a v2 lap so the track map can render."""
     docs = []
     for i in range(n):
         d = i * STEP
         speed = 210 + 70 * np.sin(d / 350) - slow
         score = 0.85 if (spike_at and abs(d - spike_at) <= 20) else 0.0
-        docs.append({"distance": d, "speed": float(speed),
-                     "rpm": float(speed * 55),
-                     "gear": int(max(1, min(8, speed // 40))),
-                     "throttle": 70.0,
-                     "brake": 100.0 if np.sin(d / 350) < -0.6 else 0.0,
-                     "drs": 0, "time_s": d / (58.0 - slow),
-                     "anomaly_score": score})
+        doc = {"distance": d, "speed": float(speed),
+               "rpm": float(speed * 55),
+               "gear": int(max(1, min(8, speed // 40))),
+               "throttle": 70.0,
+               "brake": 100.0 if np.sin(d / 350) < -0.6 else 0.0,
+               "drs": 0, "time_s": d / (58.0 - slow),
+               "anomaly_score": score}
+        if gps:
+            doc["x"] = float(np.cos(d / 800) * 500)
+            doc["y"] = float(np.sin(d / 800) * 500)
+        docs.append(doc)
     return docs
