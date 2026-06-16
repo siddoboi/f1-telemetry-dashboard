@@ -1,6 +1,6 @@
 // App: owns replay/live state, the shared zoom domain, the tab router, the
 // hover profile overlay, and lap re-picking from the Session view.
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ReplayClient } from './api/client';
 import NavBar from './components/NavBar';
 import ControlPanel from './components/ControlPanel';
@@ -48,6 +48,22 @@ export default function App() {
   const [status, setStatus] = useState('');
   const [meta, setMeta] = useState(null);
   const [points, setPoints] = useState([]);
+  // Smoothly-interpolated values the views actually render. These ease toward
+  // the latest WS frame target at the screen's native refresh rate via rAF,
+  // so motion is 60/120/144 fps smooth even though data arrives at 30 Hz.
+  const [smoothPositions, setSmoothPositions] = useState({});
+  const [smoothDistance, setSmoothDistance] = useState(0);
+  // interpolation bookkeeping
+  const interpRef = useRef({
+    prev: {},          // {drv: {distance,x,y}} at last frame
+    next: {},          // {drv: {distance,x,y}} at current target
+    prevDist: 0,
+    nextDist: 0,
+    tPrev: 0,          // performance.now() when target was set
+    frameGapMs: 1000 / 30,   // expected ms between WS frames (updated live)
+    seeking: false,    // during a seek_fill burst, snap instead of ease
+  });
+  const rafRef = useRef(null);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -124,10 +140,56 @@ export default function App() {
       pos[drv] = { distance: vals.distance ?? 0,
                    x: vals.x ?? null, y: vals.y ?? null };
     }
+    const targetDist = Math.max(0,
+      ...Object.values(pos).map((p) => p.distance));
+
+    // hand the new target to the interpolation loop. seek_fill frames arrive
+    // in a burst with no real-time pacing, so snap straight to them.
+    const it = interpRef.current;
+    const now = performance.now();
+    const isSeek = last.type === 'seek_fill';
+    it.prev = isSeek ? pos : (it.next && Object.keys(it.next).length
+                              ? it.next : pos);
+    it.prevDist = isSeek ? targetDist : it.nextDist || targetDist;
+    it.next = pos;
+    it.nextDist = targetDist;
+    it.tPrev = now;
+    it.seeking = isSeek;
+
+    // keep the raw values too (events filter, history, etc. use these)
     setDriverPositions(pos);
-    setVisibleDistance(Math.max(0,
-      ...Object.values(pos).map((p) => p.distance)));
+    setVisibleDistance(targetDist);
   };
+
+  // ── interpolation loop: eases smoothPositions / smoothDistance toward the
+  //    latest frame target at the display's refresh rate ───────────────────
+  useEffect(() => {
+    const step = () => {
+      const it = interpRef.current;
+      const drivers = Object.keys(it.next);
+      if (drivers.length) {
+        let t = it.seeking ? 1
+          : Math.min(1, (performance.now() - it.tPrev) / it.frameGapMs);
+        // ease-out for a touch of smoothness without lag
+        const e = t;
+        const out = {};
+        for (const drv of drivers) {
+          const a = it.prev[drv] || it.next[drv];
+          const b = it.next[drv];
+          out[drv] = {
+            distance: a.distance + (b.distance - a.distance) * e,
+            x: a.x != null && b.x != null ? a.x + (b.x - a.x) * e : b.x,
+            y: a.y != null && b.y != null ? a.y + (b.y - a.y) * e : b.y,
+          };
+        }
+        setSmoothPositions(out);
+        setSmoothDistance(it.prevDist + (it.nextDist - it.prevDist) * e);
+      }
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
 
   const makeClient = (isLive) => new ReplayClient({
     onStatus: (m) => setStatus(m.message),
@@ -159,6 +221,17 @@ export default function App() {
       }
     },
     onFrame: (frame) => {
+      // track the real gap between paced frames so interpolation eases over
+      // the actual arrival interval (handles speed multiplier changes too)
+      const it = interpRef.current;
+      const now = performance.now();
+      if (frame.type !== 'seek_fill' && it._lastArrival) {
+        const gap = now - it._lastArrival;
+        if (gap > 5 && gap < 2000) {
+          it.frameGapMs = it.frameGapMs * 0.8 + gap * 0.2;  // smoothed
+        }
+      }
+      it._lastArrival = now;
       bufferRef.current.push(frame);
       if (bufferRef.current.length >= 2) flush();
     },
@@ -202,6 +275,9 @@ export default function App() {
     clientRef.current?.stop();
     setMeta(null); setPoints([]); setRunning(true); setPaused(false);
     setVisibleDistance(0); setDriverPositions({});
+    setSmoothPositions({}); setSmoothDistance(0);
+    interpRef.current = { prev: {}, next: {}, prevDist: 0, nextDist: 0,
+                          tPrev: 0, frameGapMs: 1000 / 30, seeking: false };
     bufferRef.current = [];
     setFocusedEvent(null); setDomain(null);
     setHoverProfile(null);
@@ -237,6 +313,11 @@ export default function App() {
                      y: row?.[`${drv}_y`] ?? null };
       }
       setDriverPositions(pos);
+      // snap interpolation to the seek target (no easing back from old pos)
+      const it = interpRef.current;
+      it.prev = pos; it.next = pos; it.prevDist = d; it.nextDist = d;
+      it.seeking = true;
+      setSmoothPositions(pos); setSmoothDistance(d);
     } else if (committed) {
       // forward seek only fires the backend jump on release, not mid-drag
       clientRef.current?.seek(d);
@@ -297,7 +378,7 @@ export default function App() {
               points={points} driverMeta={driverMeta}
               events={visibleEvents} onEventClick={focusEvent}
               focusedEvent={focusedEvent}
-              playhead={visibleDistance} onSeek={handleSeek}
+              playhead={smoothDistance || visibleDistance} onSeek={handleSeek}
               domain={effDomain} setDomain={handleSetDomain}
               fullRange={fullRange}
               hasBaseline={!!meta && meta.baseline_mode !== 'off'}
@@ -308,7 +389,10 @@ export default function App() {
             <ErrorBoundary name="Track Map">
             <TrackMapView
               track={meta?.track} driverMeta={driverMeta}
-              driverPositions={driverPositions} events={visibleEvents}
+              driverPositions={
+                Object.keys(smoothPositions).length
+                  ? smoothPositions : driverPositions}
+              events={visibleEvents}
               onEventClick={focusEvent} focusedEvent={focusedEvent}
             />
             </ErrorBoundary>
