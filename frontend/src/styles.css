@@ -77,7 +77,9 @@ body {
   grid-template-columns: 280px 1fr auto;
   flex: 1;
   min-height: 0;
+  transition: grid-template-columns 0.22s ease;
 }
+.layout.panel-collapsed { grid-template-columns: 60px 1fr auto; }
 
 /* ------------------------------------------------------------- control --- */
 .control-panel {
@@ -89,7 +91,61 @@ body {
   gap: 14px;
   overflow-y: auto;
   max-height: calc(100vh - 52px);
+  transition: padding 0.22s ease;
 }
+
+/* collapsed 60px rail */
+.control-panel.collapsed {
+  padding: 12px 0;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+.rail-btn {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--grid); border-radius: 6px;
+  cursor: pointer; font-size: 15px;
+}
+.rail-btn:hover { border-color: var(--text-dim); }
+.rail-controls {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  margin-top: 4px;
+}
+.rail-speed {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  height: 120px;
+}
+.rail-speed input[type="range"] {
+  writing-mode: vertical-lr; direction: rtl;     /* vertical slider */
+  width: 6px; height: 100px;
+}
+.rail-speed span {
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* collapse / expand affordances */
+.collapse-btn {
+  display: flex; align-items: center; gap: 6px;
+  align-self: flex-start;
+  background: none; border: none; color: var(--text-dim);
+  cursor: pointer; font-size: 12px; letter-spacing: 0.08em;
+  padding: 2px 0;
+}
+.collapse-btn:hover { color: var(--text); }
+
+/* custom baseline (Phase 7) */
+.custom-baseline {
+  border: 1px solid var(--grid);
+  border-left: 3px solid var(--accent, #3b82f6);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex; flex-direction: column; gap: 12px;
+  background: color-mix(in srgb, var(--panel-2) 60%, transparent);
+}
+.custom-baseline .hint { margin: 0; }
 
 .live-box {
   border: 1px solid color-mix(in srgb, var(--live) 45%, var(--grid));
@@ -143,7 +199,8 @@ select:focus-visible, button:focus-visible {
 }
 .driver-chip.big { font-size: 16px; padding: 12px 18px; }
 
-.baseline-toggle, .mode-toggle { display: flex; gap: 6px; }
+.baseline-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.mode-toggle { display: flex; gap: 6px; }
 .baseline-toggle button, .mode-toggle button {
   flex: 1;
   padding: 8px 10px;
@@ -437,15 +494,53 @@ select:focus-visible, button:focus-visible {
   .sidebar, .profile-card { transition: none; }
 }
 
+/* ============================ responsive ============================ */
+/* Tablet / non-maximised window: collapse the 3-column grid to one column,
+   stack the sidebar below. The collapsed rail rule is overridden here since
+   a vertical 60px rail makes no sense once the panel is full-width on top. */
 @media (max-width: 900px) {
-  .layout { grid-template-columns: 1fr; }
+  .layout, .layout.panel-collapsed { grid-template-columns: 1fr; }
   .control-panel { border-right: none;
                    border-bottom: 1px solid var(--grid);
                    max-height: none; }
+  /* a collapsed panel on a stacked layout becomes a horizontal strip */
+  .control-panel.collapsed {
+    flex-direction: row; padding: 10px 12px; gap: 12px;
+    align-items: center; justify-content: flex-start;
+  }
+  .control-panel.collapsed .rail-controls { flex-direction: row; margin: 0; }
+  .control-panel.collapsed .rail-speed {
+    flex-direction: row; height: auto; gap: 8px;
+  }
+  .control-panel.collapsed .rail-speed input[type="range"] {
+    writing-mode: horizontal-tb; direction: ltr; width: 90px; height: 6px;
+  }
   .sidebar, .sidebar.open { width: 100%; border-left: none;
                             border-top: 1px solid var(--grid); }
   .sidebar-toggle { writing-mode: horizontal-tb; position: static; }
   .navbar { gap: 12px; overflow-x: auto; }
+  .profile-overlay { width: calc(100vw - 32px); }
+  .overlay-stats { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Phone: tighten everything, let channel tabs scroll horizontally, shrink
+   the minimap, and make driver chips a denser grid. */
+@media (max-width: 600px) {
+  .navbar { font-size: 13px; padding: 0 12px; }
+  .control-panel { padding: 12px; }
+  .channel-tabs {
+    overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .channel-tabs .chan-tab { flex: 0 0 auto; }
+  .telemetry-toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .driver-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+  .minimap svg { height: 40px; }
+  .mm-playhead-handle { top: -3px; }
+  .lap-header { flex-wrap: wrap; gap: 8px; }
+  .lap-card { font-size: 12px; }
+  .export-overlay { right: auto; left: 0; }
+  .baseline-toggle { grid-template-columns: 1fr 1fr; }
 }
 
 /* --------------------------------------------------- phase 2.5 additions --- */

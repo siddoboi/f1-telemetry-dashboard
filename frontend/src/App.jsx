@@ -57,6 +57,8 @@ export default function App() {
   const [domain, setDomain] = useState(null);     // null = follow full lap
   const [sessionRef, setSessionRef] = useState(null);
   const [hoverProfile, setHoverProfile] = useState(null); // {code, rect}
+  const [panelCollapsed, setPanelCollapsed] = useState(
+    () => localStorage.getItem('pitwall.panelCollapsed') === '1');
   const clientRef = useRef(null);
   const bufferRef = useRef([]);
   const lastRequestRef = useRef(null);
@@ -247,13 +249,14 @@ export default function App() {
   return (
     <div className="app">
       <NavBar tab={tab} onTab={setTab} />
-      <div className="layout">
+      <div className={`layout ${panelCollapsed ? 'panel-collapsed' : ''}`}>
         <ControlPanel
           onStart={handleStart}
           onPause={() => { clientRef.current?.pause(); setPaused(true); }}
           onResume={() => { clientRef.current?.resume(); setPaused(false); }}
           onSpeed={(x) => clientRef.current?.setSpeed(x)}
           running={running} paused={paused}
+          collapsed={panelCollapsed} onCollapsedChange={setPanelCollapsed}
         />
 
         <main className="main">
