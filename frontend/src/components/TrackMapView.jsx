@@ -85,14 +85,28 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
     return { nx, ny };
   };
 
-  // sector boundary slashes (perpendicular line across the track)
+  // sector boundary slashes (perpendicular line, no label on the slash itself)
   const sectorMarks = [];
+  // sector region labels placed at the midpoint of each sector, pushed outward
+  const sectorRegions = [];
   if (sectorDistances) {
-    if (sectorDistances.s1_end != null)
-      sectorMarks.push({ key: 's1', dist: sectorDistances.s1_end, label: 'S1' });
-    if (sectorDistances.s2_end != null)
-      sectorMarks.push({ key: 's2', dist: sectorDistances.s2_end, label: 'S2' });
-    sectorMarks.push({ key: 's3', dist: 0, label: 'S3' });   // start/finish
+    const { s1_end, s2_end, total } = sectorDistances;
+    if (s1_end != null)
+      sectorMarks.push({ key: 's1', dist: s1_end });
+    if (s2_end != null)
+      sectorMarks.push({ key: 's2', dist: s2_end });
+    sectorMarks.push({ key: 's3', dist: 0 });   // start/finish line
+
+    // region label midpoints
+    if (s1_end != null)
+      sectorRegions.push({ key: 's1', label: 'Sector 1',
+                           mid: s1_end / 2 });
+    if (s1_end != null && s2_end != null)
+      sectorRegions.push({ key: 's2', label: 'Sector 2',
+                           mid: (s1_end + s2_end) / 2 });
+    if (s2_end != null && total != null)
+      sectorRegions.push({ key: 's3', label: 'Sector 3',
+                           mid: (s2_end + total) / 2 });
   }
 
   return (
@@ -102,24 +116,36 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
         <path d={geom.d} className="track-outline-glow" />
         <path d={geom.d} className="track-outline" />
 
-        {/* sector boundaries: full perpendicular slash + offset label */}
+        {/* sector boundaries: perpendicular slash only, no inline label */}
         {sectorMarks.map((m) => {
           const i = geom.idxByDist(m.dist);
           const p = geom.ptAt(i);
           const { tx, ty } = geom.tangentAt(i);
-          const nx = -ty, ny = tx;               // perpendicular to travel
-          const L = 26;                          // half-length of the slash
-          const { nx: onx, ny: ony } = outwardNormal(i, p.x, p.y);
+          const nx = -ty, ny = tx;
+          const L = 26;
           const col = SECTOR_COLORS[m.key];
           return (
-            <g key={m.key}>
-              <line x1={p.x - nx * L} y1={p.y - ny * L}
-                    x2={p.x + nx * L} y2={p.y + ny * L}
-                    stroke={col} strokeWidth="3" strokeLinecap="round" />
-              <text x={p.x + onx * (L + 12)} y={p.y + ony * (L + 12)}
-                    textAnchor="middle" dominantBaseline="middle"
-                    className="sector-tick-label" fill={col}>{m.label}</text>
-            </g>
+            <line key={m.key}
+                  x1={p.x - nx * L} y1={p.y - ny * L}
+                  x2={p.x + nx * L} y2={p.y + ny * L}
+                  stroke={col} strokeWidth="3" strokeLinecap="round" />
+          );
+        })}
+
+        {/* sector region labels: float in the open space of each sector */}
+        {sectorRegions.map((r) => {
+          const i = geom.idxByDist(r.mid);
+          const p = geom.ptAt(i);
+          const { nx, ny } = outwardNormal(i, p.x, p.y);
+          const off = 72;   // large offset so label sits in open space
+          const col = SECTOR_COLORS[r.key];
+          return (
+            <text key={r.key}
+                  x={p.x + nx * off} y={p.y + ny * off}
+                  textAnchor="middle" dominantBaseline="middle"
+                  className="sector-region-label" fill={col}>
+              {r.label}
+            </text>
           );
         })}
 
