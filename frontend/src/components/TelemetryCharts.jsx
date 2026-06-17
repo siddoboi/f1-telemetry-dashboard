@@ -20,8 +20,19 @@ export const CHART_DEFS = [
 
 export default function TelemetryCharts({ data, driverMeta, events,
                                           onEventClick, domain, channels,
-                                          tall = false, focusedEvent = null }) {
+                                          tall = false, focusedEvent = null,
+                                          sectorDistances = null }) {
   const drivers = Object.keys(driverMeta);
+
+  const sectorLines = useMemo(() => {
+    if (!sectorDistances) return [];
+    const out = [];
+    if (sectorDistances.s1_end != null)
+      out.push({ x: sectorDistances.s1_end, label: 'S1', color: '#ff7a1a' });
+    if (sectorDistances.s2_end != null)
+      out.push({ x: sectorDistances.s2_end, label: 'S2', color: '#ffd21a' });
+    return out;
+  }, [sectorDistances]);
 
   const windowed = useMemo(() => {
     if (!domain) return data;
@@ -85,6 +96,15 @@ export default function TelemetryCharts({ data, driverMeta, events,
                     style={{ cursor: 'pointer' }} />
                 );
               })}
+
+              {/* sector boundary lines (S1/S2 ends; S3 = start/finish) */}
+              {sectorLines.map((sl) => (
+                <ReferenceLine key={sl.label} x={sl.x}
+                  stroke={sl.color} strokeDasharray="4 4"
+                  strokeOpacity={0.5}
+                  label={{ value: sl.label, position: 'top',
+                           fontSize: 9, fill: sl.color }} />
+              ))}
 
               {drivers.map((drv) => (
                 <Line key={`b-${drv}`} dataKey={`base_${drv}_${def.key}`}

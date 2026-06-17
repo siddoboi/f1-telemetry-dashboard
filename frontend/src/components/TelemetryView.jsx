@@ -13,7 +13,8 @@ export default function TelemetryView({ points, driverMeta, events,
                                         onEventClick, domain, setDomain,
                                         fullRange, hasBaseline = true,
                                         focusedEvent = null,
-                                        playhead = 0, onSeek }) {
+                                        playhead = 0, onSeek,
+                                        sectorDistances = null }) {
   const [driverMode, setDriverMode] = useState('stacked');
   const [channel, setChannel] = useState('speed');
   const areaRef = useRef(null);
@@ -71,6 +72,7 @@ export default function TelemetryView({ points, driverMeta, events,
           data={points} driverMeta={driverMeta} events={events}
           onEventClick={onEventClick} domain={domain}
           channels={[channel]} tall focusedEvent={focusedEvent}
+          sectorDistances={sectorDistances}
         />
       ) : (
         drivers.map((drv) => (
@@ -85,6 +87,7 @@ export default function TelemetryView({ points, driverMeta, events,
               channels={[channel]}
               tall={drivers.length === 1}
               focusedEvent={focusedEvent}
+              sectorDistances={sectorDistances}
             />
           </div>
         ))

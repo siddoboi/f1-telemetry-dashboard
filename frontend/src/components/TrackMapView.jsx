@@ -1,15 +1,18 @@
 // Full-page Track Map.
-// Circuit outline = baseline lap GPS path. Driver dots use each driver's OWN
-// GPS x/y streamed in the frames (true positions, not a shared-line lookup).
-// Clicking a dot focuses that driver's nearest anomaly event; clicking an
-// anomaly marker opens its diagnosis in the sidebar.
+// Circuit outline = baseline lap GPS path. Driver markers use each driver's
+// OWN GPS x/y streamed in the frames (true positions). Enhancements:
+//  - sector boundary markers (S1/S2/S3) at meta.sector_distances
+//  - corner number labels (T01..) at meta.corners apex positions
+//  - driver flag badges (team-color stripe + code) instead of plain dots
+//  - per-sector timing cards showing each driver's time + delta vs baseline
 import { useMemo, useState } from 'react';
 
-const PAD = 30;
+const PAD = 36;
+const SECTOR_COLORS = { s1: '#ff7a1a', s2: '#ffd21a', s3: '#36d1ff' };
 
 export default function TrackMapView({ track, driverMeta, driverPositions,
-                                       events, onEventClick,
-                                       focusedEvent = null }) {
+                                       events, onEventClick, focusedEvent = null,
+                                       corners = [], sectorDistances = null }) {
   const [hover, setHover] = useState(null);
 
   const geom = useMemo(() => {
@@ -32,8 +35,7 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
       }
       return { x: sx(xs[lo]), y: sy(ys[lo]) };
     };
-    return { d, sx, sy, lookupByDist,
-             height: PAD * 2 + h * scale };
+    return { d, sx, sy, lookupByDist, height: PAD * 2 + h * scale };
   }, [track]);
 
   if (!geom) {
@@ -46,7 +48,6 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
     );
   }
 
-  // clicking a driver dot -> focus that driver's nearest event
   const focusNearest = (drv) => {
     const pos = driverPositions[drv];
     if (!pos) return;
@@ -58,6 +59,17 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
     onEventClick(nearest);
   };
 
+  // sector boundary tick marks (S1 end, S2 end, and start/finish = S3 end)
+  const sectorMarks = [];
+  if (sectorDistances) {
+    if (sectorDistances.s1_end != null)
+      sectorMarks.push({ key: 's1', dist: sectorDistances.s1_end, label: 'S1' });
+    if (sectorDistances.s2_end != null)
+      sectorMarks.push({ key: 's2', dist: sectorDistances.s2_end, label: 'S2' });
+    if (track?.distance?.length)
+      sectorMarks.push({ key: 's3', dist: 0, label: 'S3' });   // start/finish
+  }
+
   return (
     <div className="trackmap-view">
       <svg viewBox={`0 0 1000 ${Math.max(400, geom.height)}`}
@@ -65,6 +77,35 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
         <path d={geom.d} className="track-outline-glow" />
         <path d={geom.d} className="track-outline" />
 
+        {/* sector boundary ticks */}
+        {sectorMarks.map((m) => {
+          const p = geom.lookupByDist(m.dist);
+          const col = SECTOR_COLORS[m.key];
+          return (
+            <g key={m.key} transform={`translate(${p.x},${p.y})`}>
+              <circle r="6" fill="none" stroke={col} strokeWidth="2.5" />
+              <circle r="2" fill={col} />
+              <text y="-12" textAnchor="middle" className="sector-tick-label"
+                    fill={col}>{m.label}</text>
+            </g>
+          );
+        })}
+
+        {/* corner number labels */}
+        {corners.map((c) => {
+          const p = geom.lookupByDist(c.distance);
+          return (
+            <g key={`${c.number}${c.letter}`}
+               transform={`translate(${p.x},${p.y})`}>
+              <circle r="2" className="corner-dot" />
+              <text y="11" textAnchor="middle" className="corner-label">
+                T{String(c.number).padStart(2, '0')}{c.letter}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* anomaly markers */}
         {events.map((ev, i) => {
           const p = geom.lookupByDist(ev.start_distance);
           const c = driverMeta[ev.driver]?.color || '#ff4444';
@@ -85,20 +126,27 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
           );
         })}
 
+        {/* driver flag badges */}
         {Object.entries(driverPositions).map(([drv, pos]) => {
-          // true GPS position when frames carry x/y; fall back to the
-          // baseline path at the driver's distance otherwise
           const p = (pos.x != null && pos.y != null)
             ? { x: geom.sx(pos.x), y: geom.sy(pos.y) }
             : geom.lookupByDist(pos.distance ?? 0);
           const c = driverMeta[drv]?.color || '#fff';
           return (
             <g key={drv} transform={`translate(${p.x},${p.y})`}
-               className="driver-dot" onClick={() => focusNearest(drv)}>
-              <circle r="9" fill={c} stroke="#0b0c0f" strokeWidth="2" />
-              <text y="-14" textAnchor="middle" className="dot-label">
-                {drv}
-              </text>
+               className="driver-flag" onClick={() => focusNearest(drv)}>
+              {/* stripe + badge body, anchored above the true position */}
+              <g transform="translate(0,-26)">
+                <rect x="-22" y="-9" width="44" height="18" rx="3"
+                      className="flag-body" />
+                <rect x="-22" y="-9" width="5" height="18" rx="2" fill={c} />
+                <text x="3" y="4" textAnchor="middle" className="flag-code"
+                      fill="#fff">{drv}</text>
+              </g>
+              {/* the precise track position */}
+              <circle r="4" fill={c} stroke="#0b0c0f" strokeWidth="1.5" />
+              <line x1="0" y1="-17" x2="0" y2="-4" stroke={c}
+                    strokeWidth="1.5" opacity="0.6" />
             </g>
           );
         })}

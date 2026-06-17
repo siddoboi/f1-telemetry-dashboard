@@ -741,3 +741,62 @@ select:focus-visible, button:focus-visible {
   color: #f5c518; margin-left: 5px; font-size: 11px;
   vertical-align: middle;
 }
+
+/* ============================ Bundle C+D ============================ */
+/* sector boundary ticks on the track map */
+.sector-tick-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  font-weight: 600; letter-spacing: 0.06em; }
+
+/* corner number labels */
+.corner-dot { fill: var(--text-dim); opacity: 0.6; }
+.corner-label { font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  fill: #36d1ff; opacity: 0.75; letter-spacing: 0.02em; }
+
+/* driver flag badges */
+.driver-flag { cursor: pointer; }
+.driver-flag .flag-body { fill: #14161c; stroke: #2a2e38; stroke-width: 1; }
+.driver-flag .flag-code { font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+.driver-flag:hover .flag-body { stroke: var(--text-dim); }
+
+/* sector timing comparison table */
+.sector-table { margin: 16px 0 8px; overflow-x: auto; }
+.sector-table table { width: 100%; border-collapse: separate;
+  border-spacing: 4px; }
+.sector-table th {
+  font-family: 'Titillium Web', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim);
+  background: var(--panel-2); padding: 8px 14px; text-align: center;
+  border-radius: 4px;
+}
+.sector-table th.st-driver { background: transparent; }
+.sector-table .st-driver {
+  font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px;
+  color: var(--text); padding: 8px 14px; white-space: nowrap;
+  display: flex; align-items: center; gap: 8px;
+}
+.sector-table .st-stripe {
+  display: inline-block; width: 4px; height: 18px; border-radius: 2px;
+  background: var(--team);
+}
+.sector-table .st-cell {
+  font-family: 'IBM Plex Mono', monospace; text-align: center;
+  padding: 8px 14px; background: var(--panel-2); border-radius: 4px;
+  position: relative; min-width: 92px;
+}
+.sector-table .st-time { font-size: 17px; font-weight: 600; color: var(--text);
+  display: block; }
+.sector-table .st-delta { font-size: 10px; display: block; margin-top: 2px;
+  color: var(--text-dim); }
+.sector-table .st-lap .st-time, .sector-table .st-lap { font-size: 17px; }
+
+/* cell colour states */
+.sector-table .sec-green { background: rgba(46, 204, 113, 0.16);
+  box-shadow: inset 3px 0 0 #2ecc71; }
+.sector-table .sec-green .st-delta { color: #2ecc71; }
+.sector-table .sec-red { background: rgba(231, 76, 60, 0.16);
+  box-shadow: inset 3px 0 0 #e74c3c; }
+.sector-table .sec-red .st-delta { color: #e74c3c; }
+.sector-table .sec-purple { background: rgba(155, 89, 182, 0.20);
+  box-shadow: inset 3px 0 0 #9b59b6; }
+.sector-table .sec-purple .st-time { color: #c89be0; }

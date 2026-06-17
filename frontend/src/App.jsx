@@ -6,6 +6,7 @@ import NavBar from './components/NavBar';
 import ControlPanel from './components/ControlPanel';
 import TelemetryView from './components/TelemetryView';
 import TrackMapView from './components/TrackMapView';
+import SectorTable from './components/SectorTable';
 import SessionView from './components/SessionView';
 import HistoryView from './components/HistoryView';
 import AnomalySidebar from './components/AnomalySidebar';
@@ -110,6 +111,17 @@ export default function App() {
     return (meta?.events || [])
       .filter((e) => e.start_distance <= visibleDistance);
   }, [meta, visibleDistance]);
+
+  // sector times per driver, pulled from meta.drivers[*].sector_times
+  const sectorTimes = useMemo(() => {
+    if (!meta?.drivers) return null;
+    const out = {};
+    let any = false;
+    for (const [drv, info] of Object.entries(meta.drivers)) {
+      if (info.sector_times) { out[drv] = info.sector_times; any = true; }
+    }
+    return any ? out : null;
+  }, [meta]);
 
   const flush = () => {
     const buffered = bufferRef.current;
@@ -382,6 +394,7 @@ export default function App() {
               domain={effDomain} setDomain={handleSetDomain}
               fullRange={fullRange}
               hasBaseline={!!meta && meta.baseline_mode !== 'off'}
+              sectorDistances={meta?.sector_distances || null}
             />
             </ErrorBoundary>
           </div>
@@ -394,7 +407,16 @@ export default function App() {
                   ? smoothPositions : driverPositions}
               events={visibleEvents}
               onEventClick={focusEvent} focusedEvent={focusedEvent}
+              corners={meta?.corners || []}
+              sectorDistances={meta?.sector_distances || null}
             />
+            {meta && sectorTimes && (
+              <SectorTable
+                driverMeta={driverMeta}
+                sectorTimes={sectorTimes}
+                baselineOwner={meta.baseline_owner}
+              />
+            )}
             </ErrorBoundary>
           </div>
           <div className={tab === 'session' ? '' : 'hidden'}>
