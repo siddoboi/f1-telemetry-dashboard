@@ -2,8 +2,9 @@
 Replay engine - the heart of the "simulated real-time" architecture.
 
 It takes fully prepared, ML-scored, distance-aligned laps and emits frames
-one distance-step at a time at a configurable tick rate. Downstream consumers
-(the WebSocket handler, the DB writer) cannot tell the data is historical.
+one distance-step at a time. Pacing is timestamp-driven: the engine waits
+the real time between distance steps (from time_s deltas), so 1x playback
+matches the actual lap time. Speed multipliers scale that wait.
 
 Multi-driver note: drivers are interleaved by FRAME INDEX, i.e. both cars are
 shown at the same track position each tick. That is exactly what a distance-
@@ -28,16 +29,30 @@ FRAME_COLS = ["distance", "speed", "rpm", "gear", "throttle", "brake",
 class ReplayEngine:
     def __init__(self, scored_laps: dict[str, pd.DataFrame],
                  tick_rate_hz: float | None = None):
-        """scored_laps: driver code -> scored distance-grid DataFrame."""
         self.laps = {d: df.reset_index(drop=True)
                      for d, df in scored_laps.items()}
-        self.tick = 1.0 / (tick_rate_hz or config.DEFAULT_TICK_RATE_HZ)
         self.n_steps = max(len(df) for df in self.laps.values())
+        self._speed = 1.0
+
+        # Reference timeline from the longest lap's time_s column
+        ref = max(self.laps.values(), key=len)
+        t = ref["time_s"].to_numpy(dtype=float)
+        dt = np.diff(t, prepend=t[0])
+        dt[dt < 0] = 0
+        self._frame_dt = np.clip(dt, 0.0, 0.5)
+
+        # High tick_rate_hz (e.g. 5000 in tests) caps the wait so tests
+        # run fast without real-time delays
+        if tick_rate_hz and tick_rate_hz > config.DEFAULT_TICK_RATE_HZ * 4:
+            self._cap_dt = 1.0 / tick_rate_hz
+        else:
+            self._cap_dt = None
+
         self._paused = asyncio.Event()
-        self._paused.set()              # not paused initially
+        self._paused.set()
         self._stopped = False
-        self._cursor = 0                # current frame index
-        self._seek_to = None            # pending forward-seek target index
+        self._cursor = 0
+        self._seek_to = None
 
     # ------------------------------------------------------------- control
     def pause(self):  self._paused.clear()
@@ -45,13 +60,9 @@ class ReplayEngine:
     def stop(self):   self._stopped = True; self._paused.set()
 
     def set_speed(self, multiplier: float):
-        base = 1.0 / config.DEFAULT_TICK_RATE_HZ
-        self.tick = base / max(0.1, min(multiplier, 20.0))
+        self._speed = max(0.1, min(multiplier, 20.0))
 
     def seek_to_distance(self, distance: float) -> None:
-        """Request a forward jump to the frame nearest `distance`. Backward
-        seeks are handled on the frontend, so only targets ahead of the
-        cursor are honoured here."""
         target = self._index_for_distance(distance)
         if target > self._cursor:
             self._seek_to = target
@@ -72,9 +83,6 @@ class ReplayEngine:
 
     # -------------------------------------------------------------- stream
     async def frames(self) -> AsyncIterator[dict]:
-        """Yields one multi-driver frame bundle per tick. A pending forward
-        seek fast-emits every skipped frame (kind='seek_fill', no sleep) so
-        the client's point array stays complete, then pacing resumes."""
         self._cursor = 0
         while self._cursor < self.n_steps:
             if self._stopped:
@@ -90,7 +98,14 @@ class ReplayEngine:
 
             yield self._bundle(self._cursor)
             self._cursor += 1
-            await asyncio.sleep(self.tick)
+
+            if self._cursor < self.n_steps:
+                gap = float(self._frame_dt[self._cursor]) / self._speed
+                gap = min(gap, 1.0)
+                if self._cap_dt:
+                    gap = min(gap, self._cap_dt)
+                await asyncio.sleep(gap)
+
         yield {"type": "complete", "total_steps": self.n_steps}
 
 
