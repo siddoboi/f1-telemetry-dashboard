@@ -65,13 +65,13 @@ async def test_pause_blocks_until_resume(scored):
 
 def test_speed_multiplier_clamped(scored):
     from app.replay.replay_engine import ReplayEngine
-    from app import config
-    base = 1.0 / config.DEFAULT_TICK_RATE_HZ
     eng = ReplayEngine({"TST": scored})
     eng.set_speed(100.0)                            # clamps to 20x
-    assert eng.tick == pytest.approx(base / 20)
+    assert eng._speed == pytest.approx(20.0)
     eng.set_speed(0.01)                             # clamps to 0.1x
-    assert eng.tick == pytest.approx(base / 0.1)
+    assert eng._speed == pytest.approx(0.1)
+    eng.set_speed(2.0)
+    assert eng._speed == pytest.approx(2.0)
 
 
 async def test_forward_seek_fills_skipped_frames(scored):
