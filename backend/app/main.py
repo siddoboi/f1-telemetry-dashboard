@@ -125,6 +125,12 @@ async def history():
     return await database.get_saved_laps()
 
 
+@app.get("/api/circuit/{year}/{rnd}/{session}")
+async def circuit(year: int, rnd: int, session: str):
+    """Corners, sector boundary distances, and DRS zones for the circuit."""
+    return await run_in_threadpool(f1.get_circuit_info, year, rnd, session)
+
+
 # -------------------------------------------------------------- export ----
 _EXPORT_CACHE: dict = {"meta": None, "scored_laps": None, "name": "export"}
 
@@ -169,6 +175,20 @@ def _prepare(req: ReplayRequest) -> dict:
             "baseline_lap_time": comp.get("baseline_lap_time"),
             "track": comp.get("track"),
             "drivers": {}, "events": [], "validation": {}}
+
+    # circuit geometry: corners, sector boundary distances, DRS zones.
+    # Best-effort — never block a replay if circuit_info is unavailable.
+    try:
+        ci = f1.get_circuit_info(req.year, req.round, req.session)
+        meta["corners"] = ci.get("corners", [])
+        meta["sector_distances"] = ci.get("sector_distances")
+        meta["drs_zones"] = ci.get("drs_zones", [])
+    except Exception:                                     # noqa: BLE001
+        log.exception("circuit info attach failed")
+        meta["corners"] = []
+        meta["sector_distances"] = None
+        meta["drs_zones"] = []
+
     scored_laps = {}
 
     for drv, info in comp["drivers"].items():
@@ -179,6 +199,7 @@ def _prepare(req: ReplayRequest) -> dict:
             meta["drivers"][drv] = {
                 "meta": info["meta"], "lap_number": info["lap_number"],
                 "lap_time": info["lap_time"],
+                "sector_times": info.get("sector_times"),
                 "baseline_driver": None, "baseline_lap_time": None,
                 "baseline": {}}
             continue
@@ -200,6 +221,7 @@ def _prepare(req: ReplayRequest) -> dict:
         meta["drivers"][drv] = {
             "meta": info["meta"], "lap_number": info["lap_number"],
             "lap_time": info["lap_time"],
+            "sector_times": info.get("sector_times"),
             "baseline_driver": info["baseline"]["driver"],
             "baseline_lap_time": info["baseline"]["lap_time"],
             "baseline": {

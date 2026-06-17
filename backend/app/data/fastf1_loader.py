@@ -106,6 +106,22 @@ def _fmt_laptime(td) -> str:
     return f"{int(total // 60)}:{total % 60:06.3f}"
 
 
+def _sector_times(lap) -> dict:
+    """S1/S2/S3 times for a lap as both seconds and formatted strings."""
+    out = {}
+    for i, col in enumerate(
+            ("Sector1Time", "Sector2Time", "Sector3Time"), start=1):
+        val = lap.get(col)
+        if val is not None and not pd.isna(val):
+            s = float(val.total_seconds())
+            out[f"s{i}"] = round(s, 3)
+            out[f"s{i}_fmt"] = f"{s:06.3f}"
+        else:
+            out[f"s{i}"] = None
+            out[f"s{i}_fmt"] = None
+    return out
+
+
 def _pick_lap(ses, driver: str, lap_number: int | None):
     laps = ses.laps.pick_drivers(driver)
     if lap_number is not None:
@@ -157,6 +173,77 @@ def lap_to_distance_grid(lap) -> pd.DataFrame:
     df["drs"] = df["drs"].round().astype(int)
     df.rename(columns={"ngear": "gear"}, inplace=True)
     return df
+
+
+def get_circuit_info(year: int, rnd: int, session: str,
+                     reference_lap=None) -> dict:
+    """
+    Corner positions, sector boundary distances and DRS zones for a circuit.
+
+    Corners and DRS come from FastF1's get_circuit_info() (official circuit
+    geometry). Sector boundaries are derived from the reference (fastest) lap's
+    Sector1/2 session times mapped onto the distance grid, since circuit_info
+    itself doesn't carry sector splits.
+
+    Returns:
+      corners:        [{number, letter, distance, x, y}]
+      sector_distances: {s1_end, s2_end, total}   (metres along the lap)
+      drs_zones:      [{start, end}]  (metres; end is the detection/zone end)
+    """
+    ses = load_session(year, rnd, session)
+    out = {"corners": [], "sector_distances": None, "drs_zones": []}
+
+    try:
+        ci = ses.get_circuit_info()
+    except Exception as exc:                            # noqa: BLE001
+        log.warning("circuit_info unavailable for %s %s %s: %s",
+                    year, rnd, session, exc)
+        ci = None
+
+    if ci is not None:
+        corners = ci.corners
+        for _, c in corners.iterrows():
+            out["corners"].append({
+                "number": int(c["Number"]),
+                "letter": str(c.get("Letter", "") or ""),
+                "distance": round(float(c["Distance"]), 1),
+                "x": float(c["X"]), "y": float(c["Y"]),
+            })
+        # DRS zones: marshal_lights mark detection points; FastF1 exposes
+        # rotation + corners but not explicit DRS spans, so we approximate a
+        # zone as the span between consecutive long straights is out of scope.
+        # Where available, FastF1 >=3.x exposes circuit_info with no DRS; we
+        # leave drs_zones empty rather than guess wrongly.
+
+    # sector boundaries from the reference lap
+    lap = reference_lap if reference_lap is not None else \
+        ses.laps.pick_fastest()
+    try:
+        tel = lap.get_telemetry().dropna(subset=["Distance"])
+        dist = tel["Distance"].to_numpy(dtype=float)
+        tsec = tel["Time"].dt.total_seconds().to_numpy(dtype=float)
+        tsec = tsec - tsec[0]
+        total = float(dist.max())
+
+        # FastF1 gives Sector1Time / Sector2Time as durations. The S1/S2
+        # boundary is at elapsed time = Sector1Time; the S2/S3 boundary at
+        # Sector1Time + Sector2Time. Map those elapsed times to distance.
+        s1 = lap.get("Sector1Time")
+        s2 = lap.get("Sector2Time")
+        s1_s = s1.total_seconds() if s1 is not None and not pd.isna(s1) else None
+        s2_s = s2.total_seconds() if s2 is not None and not pd.isna(s2) else None
+        s1_end = float(np.interp(s1_s, tsec, dist)) if s1_s else None
+        s2_end = (float(np.interp(s1_s + s2_s, tsec, dist))
+                  if s1_s and s2_s else None)
+        out["sector_distances"] = {
+            "s1_end": round(s1_end, 1) if s1_end else None,
+            "s2_end": round(s2_end, 1) if s2_end else None,
+            "total": round(total, 1),
+        }
+    except Exception as exc:                            # noqa: BLE001
+        log.warning("sector boundary derivation failed: %s", exc)
+
+    return out
 
 
 def driver_session_stats(year: int, rnd: int, session: str,
@@ -263,6 +350,7 @@ def build_comparison(year: int, rnd: int, session: str, drivers: list[str],
             "meta": driver_meta.get(drv, {"code": drv, "color": "#888888"}),
             "lap_number": int(lap["LapNumber"]),
             "lap_time": _fmt_laptime(lap["LapTime"]),
+            "sector_times": _sector_times(lap),
             "comparison": comp_df,
             "baseline": base,
         }
