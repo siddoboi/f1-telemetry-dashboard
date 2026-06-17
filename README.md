@@ -137,7 +137,7 @@ from the zoom-window handles. Dragging it:
 
 ## Typography & motion
 
-UI chrome uses Titillium Web (F1's historical typeface); all numeric values use IBM Plex Mono. The replay streams at 30 Hz and the frontend interpolates positions between frames via requestAnimationFrame, so the track-map dot and playhead move at the display's native refresh rate (60/120/144 Hz).
+UI chrome uses Titillium Web (F1's historical typeface); all numeric values use IBM Plex Mono. Replay pacing is timestamp-driven: the engine waits the real time between distance steps (from each lap's time_s), so 1x playback matches the actual lap time (a 1:29 lap takes ~89 s). The frontend interpolates positions between frames via requestAnimationFrame, so the track-map dot and playhead move at the display's native refresh rate (60/120/144 Hz). Speed multipliers (0.1x–20x) scale the wall-clock pacing.
 
 ## Honest limitations
 
