@@ -27,6 +27,8 @@ export default function TelemetryCharts({ data, driverMeta, events,
   const sectorLines = useMemo(() => {
     if (!sectorDistances) return [];
     const out = [];
+    // S3 boundary = start/finish line at distance 0
+    out.push({ x: 0, label: 'S3', color: '#36d1ff' });
     if (sectorDistances.s1_end != null)
       out.push({ x: sectorDistances.s1_end, label: 'S1', color: '#ff7a1a' });
     if (sectorDistances.s2_end != null)

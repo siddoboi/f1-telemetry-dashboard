@@ -743,52 +743,51 @@ select:focus-visible, button:focus-visible {
 }
 
 /* ============================ Bundle C+D ============================ */
-/* sector boundary ticks on the track map */
-.sector-tick-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
-  font-weight: 600; letter-spacing: 0.06em; }
+/* sector boundary labels on the track map (larger) */
+.sector-tick-label { font-family: 'IBM Plex Mono', monospace; font-size: 16px;
+  font-weight: 700; letter-spacing: 0.04em; }
 
-/* corner number labels */
-.corner-dot { fill: var(--text-dim); opacity: 0.6; }
-.corner-label { font-family: 'IBM Plex Mono', monospace; font-size: 8px;
-  fill: #36d1ff; opacity: 0.75; letter-spacing: 0.02em; }
+/* corner number labels (larger, off the track) */
+.corner-label { font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+  fill: #5fd9ff; opacity: 0.85; letter-spacing: 0.02em; font-weight: 600; }
 
 /* driver flag badges */
 .driver-flag { cursor: pointer; }
 .driver-flag .flag-body { fill: #14161c; stroke: #2a2e38; stroke-width: 1; }
 .driver-flag .flag-code { font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+  font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
 .driver-flag:hover .flag-body { stroke: var(--text-dim); }
 
-/* sector timing comparison table */
-.sector-table { margin: 16px 0 8px; overflow-x: auto; }
-.sector-table table { width: 100%; border-collapse: separate;
-  border-spacing: 4px; }
+/* sector timing comparison table (more compact) */
+.sector-table { margin: 15px 0 6px; overflow-x: auto; }
+.sector-table table { width: 70%; border-collapse: separate; border-spacing: 3px;
+  margin: 0 auto; }
 .sector-table th {
-  font-family: 'Titillium Web', sans-serif; font-size: 11px; font-weight: 600;
-  letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim);
-  background: var(--panel-2); padding: 8px 14px; text-align: center;
-  border-radius: 4px;
+  font-family: 'Titillium Web', sans-serif; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim);
+  background: var(--panel-2); padding: 5px 10px; text-align: center;
+  border-radius: 3px;
 }
 .sector-table th.st-driver { background: transparent; }
 .sector-table .st-driver {
-  font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px;
-  color: var(--text); padding: 8px 14px; white-space: nowrap;
-  display: flex; align-items: center; gap: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 15px;
+  color: var(--text); padding: 5px 10px; white-space: nowrap;
+  display: flex; align-items: center; gap: 7px;
 }
 .sector-table .st-stripe {
-  display: inline-block; width: 4px; height: 18px; border-radius: 2px;
+  display: inline-block; width: 4px; height: 16px; border-radius: 2px;
   background: var(--team);
 }
 .sector-table .st-cell {
   font-family: 'IBM Plex Mono', monospace; text-align: center;
-  padding: 8px 14px; background: var(--panel-2); border-radius: 4px;
-  position: relative; min-width: 92px;
+  padding: 5px 10px; background: var(--panel-2); border-radius: 3px;
+  position: relative; min-width: 78px;
 }
-.sector-table .st-time { font-size: 17px; font-weight: 600; color: var(--text);
+.sector-table .st-time { font-size: 15px; font-weight: 600; color: var(--text);
   display: block; }
-.sector-table .st-delta { font-size: 10px; display: block; margin-top: 2px;
+.sector-table .st-delta { font-size: 10px; display: block; margin-top: 1px;
   color: var(--text-dim); }
-.sector-table .st-lap .st-time, .sector-table .st-lap { font-size: 17px; }
+.sector-table .st-lap .st-time, .sector-table .st-lap { font-size: 15px; }
 
 /* cell colour states */
 .sector-table .sec-green { background: rgba(46, 204, 113, 0.16);
