@@ -13,7 +13,10 @@ from app.data import fastf1_loader as f1
 
 class FakeLap(dict):
     _data = {"LapTime": pd.Timedelta(seconds=90),
-             "LapNumber": 12, "Driver": "XXX"}
+             "LapNumber": 12, "Driver": "XXX",
+             "Sector1Time": pd.Timedelta(seconds=28.5),
+             "Sector2Time": pd.Timedelta(seconds=37.0),
+             "Sector3Time": pd.Timedelta(seconds=24.5)}
 
     def __getitem__(self, k):
         if k in self._data:
