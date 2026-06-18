@@ -67,18 +67,8 @@ export default function TelemetryCharts({ data, driverMeta, events,
                 <ReferenceLine y={0} stroke="var(--text)"
                                strokeDasharray="6 4" strokeOpacity={0.55} />
               )}
-              <Tooltip
-                contentStyle={{ background: 'var(--panel)',
-                                border: '1px solid var(--grid)',
-                                fontSize: 11 }}
-                labelFormatter={(v) => `${Math.round(v)} m`}
-                formatter={(value, name) =>
-                  [typeof value === 'number'
-                     ? (def.key === 'delta'
-                        ? `${value > 0 ? '+' : ''}${value.toFixed(3)} s`
-                        : value.toFixed(1))
-                     : value, name]}
-              />
+              <Tooltip content={<SwatchTooltip driverMeta={driverMeta}
+                                               channelKey={def.key} />} />
 
               {events.map((ev, i) => {
                 const isFocused = focusedEvent
@@ -124,6 +114,37 @@ export default function TelemetryCharts({ data, driverMeta, events,
               ))}
             </LineChart>
           </ResponsiveContainer>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// tooltip with a team-colour swatch beside each driver's name
+function SwatchTooltip({ active, payload, label, driverMeta, channelKey }) {
+  if (!active || !payload?.length) return null;
+  const fmt = (v) => typeof v !== 'number' ? v
+    : channelKey === 'delta'
+      ? `${v > 0 ? '+' : ''}${v.toFixed(3)} s`
+      : v.toFixed(1);
+  // map each payload row back to its driver code (dataKey like "VER_speed"
+  // or "base_VER_speed")
+  const rows = payload.map((p) => {
+    const key = p.dataKey || '';
+    const m = key.match(/^(?:base_)?([A-Z0-9]{2,4})_/);
+    const drv = m ? m[1] : p.name;
+    const isBase = key.startsWith('base_');
+    return { drv, isBase, value: p.value,
+             color: driverMeta[drv]?.color || p.color || '#888' };
+  });
+  return (
+    <div className="chart-tooltip">
+      <div className="ct-label">{Math.round(label)} m</div>
+      {rows.map((r, i) => (
+        <div key={i} className="ct-row">
+          <span className="ct-swatch" style={{ background: r.color }} />
+          <span className="ct-name">{r.drv}{r.isBase ? ' base' : ''}</span>
+          <span className="ct-value">{fmt(r.value)}</span>
         </div>
       ))}
     </div>
