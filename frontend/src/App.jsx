@@ -432,6 +432,8 @@ export default function App() {
               year={sessionRef?.year}
               round={sessionRef?.round}
               session={sessionRef?.session}
+              circuitLocation={meta?.circuit_location || null}
+              panelCollapsed={panelCollapsed}
             />
             </ErrorBoundary>
           </div>

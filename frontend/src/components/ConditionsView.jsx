@@ -1,7 +1,9 @@
 // CONDITIONS tab - historical track weather (Open-Meteo) + circuit map.
-// Map uses Leaflet + OpenStreetMap tiles (no token/account required), loaded
-// from CDN on demand. Weather timeline offers HOURLY (raw) or 15 MIN
-// (cubic-interpolated, clearly labelled) resolution.
+// Map: Leaflet with OSM (default) or ESRI World Imagery (satellite) tiles,
+// no token/account. The map preloads from circuitLocation in meta the moment
+// a replay starts, so it's ready before the user opens this tab.
+// Weather timeline is always cubic-interpolated to 15-min points for a smooth
+// curve; X-axis is labelled only at the original hourly timestamps.
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 const ICONS = {
@@ -9,12 +11,28 @@ const ICONS = {
   rain: '🌧', snow: '❄', storm: '⛈',
 };
 
-export default function ConditionsView({ year, round, session }) {
+const TILE_LAYERS = {
+  map: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenStreetMap contributors', maxZoom: 18,
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '© Esri, Maxar, Earthstar Geographics', maxZoom: 19,
+  },
+};
+
+export default function ConditionsView({ year, round, session,
+                                         circuitLocation = null,
+                                         panelCollapsed = false }) {
   const [data, setData] = useState(null);
-  const [status, setStatus] = useState('idle');   // idle|loading|ok|error
-  const [res, setRes] = useState('hourly');        // 'hourly' | '15min'
+  const [status, setStatus] = useState('idle');
+  const [mapStyle, setMapStyle] = useState('map');   // 'map' | 'satellite'
+  const [tilesReady, setTilesReady] = useState(false);
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
+  const tileLayerRef = useRef(null);
+  const roRef = useRef(null);
 
   // fetch weather when a session is identified
   useEffect(() => {
@@ -32,10 +50,14 @@ export default function ConditionsView({ year, round, session }) {
     return () => { cancelled = true; };
   }, [year, round, session]);
 
-  // lazy-load Leaflet from CDN and render the circuit location
+  // coordinates: prefer the preloaded meta location, fall back to fetched data
+  const loc = data?.location || circuitLocation;
+  const lat = loc?.latitude, lon = loc?.longitude;
+
+  // lazy-load Leaflet from CDN and create the map as soon as we have coords
+  // (this runs even before the weather fetch resolves, via circuitLocation)
   useEffect(() => {
-    const loc = data?.location;
-    if (!loc?.latitude || !mapRef.current) return;
+    if (lat == null || lon == null || !mapRef.current) return;
 
     const ensureLeaflet = () => new Promise((resolve) => {
       if (window.L) return resolve(window.L);
@@ -49,76 +71,83 @@ export default function ConditionsView({ year, round, session }) {
       document.head.appendChild(js);
     });
 
-    let map;
     ensureLeaflet().then((L) => {
       if (!mapRef.current) return;
-      if (mapInstance.current) { mapInstance.current.remove(); }
-      map = L.map(mapRef.current, {
-        center: [loc.latitude, loc.longitude], zoom: 14,
-        zoomControl: true, attributionControl: true,
-        scrollWheelZoom: false,
-      });
-      L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        { maxZoom: 18,
-          attribution: '© OpenStreetMap contributors' }).addTo(map);
-      L.circleMarker([loc.latitude, loc.longitude],
-        { radius: 8, color: '#ff1e1e', fillColor: '#ff1e1e',
-          fillOpacity: 0.7 }).addTo(map)
-        .bindPopup(`${loc.event_name || loc.circuit}`);
-      mapInstance.current = map;
+      if (!mapInstance.current) {
+        const map = L.map(mapRef.current, {
+          center: [lat, lon], zoom: 15, zoomControl: true,
+          attributionControl: true, scrollWheelZoom: false,
+        });
+        const conf = TILE_LAYERS[mapStyle];
+        tileLayerRef.current = L.tileLayer(conf.url, {
+          maxZoom: conf.maxZoom, attribution: conf.attribution,
+        });
+        tileLayerRef.current.on('load', () => setTilesReady(true));
+        tileLayerRef.current.addTo(map);
+        L.circleMarker([lat, lon], {
+          radius: 8, color: '#ff1e1e', weight: 2,
+          fillColor: '#ff1e1e', fillOpacity: 0.7,
+        }).addTo(map).bindPopup(loc.event_name || loc.circuit || 'Circuit');
+        mapInstance.current = map;
+
+        // invalidateSize once the container has real dimensions (tab visible)
+        roRef.current = new ResizeObserver(() => {
+          if (mapInstance.current) mapInstance.current.invalidateSize();
+        });
+        roRef.current.observe(mapRef.current);
+      } else {
+        mapInstance.current.setView([lat, lon], 15);
+      }
     });
 
-    return () => { if (mapInstance.current) {
-      mapInstance.current.remove(); mapInstance.current = null; } };
-  }, [data]);
+    return () => {
+      if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
+      if (mapInstance.current) {
+        mapInstance.current.remove(); mapInstance.current = null;
+        tileLayerRef.current = null;
+      }
+    };
+  }, [lat, lon]);
 
+  // swap tile layer when the user toggles map/satellite
+  useEffect(() => {
+    if (!mapInstance.current || !window.L || !tileLayerRef.current) return;
+    setTilesReady(false);
+    mapInstance.current.removeLayer(tileLayerRef.current);
+    const conf = TILE_LAYERS[mapStyle];
+    tileLayerRef.current = window.L.tileLayer(conf.url, {
+      maxZoom: conf.maxZoom, attribution: conf.attribution,
+    });
+    tileLayerRef.current.on('load', () => setTilesReady(true));
+    tileLayerRef.current.addTo(mapInstance.current);
+  }, [mapStyle]);
+
+  // always-interpolated series (smooth curve)
   const series = useMemo(() => {
     const hourly = data?.hourly || [];
-    if (res === 'hourly' || hourly.length < 2) return hourly;
+    if (hourly.length < 2) return hourly;
     return interpolateQuarterHour(hourly);
-  }, [data, res]);
+  }, [data]);
 
-  // representative "current" reading = midday or middle of the series
   const summary = useMemo(() => {
     const h = data?.hourly || [];
     if (!h.length) return null;
     return h[Math.floor(h.length / 2)];
   }, [data]);
 
-  if (year == null) {
-    return (
-      <div className="empty">
-        <p>Load a session to see track conditions.</p>
-        <p className="hint">Historical weather is fetched for the circuit
-        location and session date from Open-Meteo.</p>
-      </div>
-    );
-  }
-  if (status === 'loading')
-    return <div className="empty"><p>Loading track conditions…</p></div>;
-  if (status === 'error' || !data?.available) {
-    return (
-      <div className="empty">
-        <p>Weather data isn't available for this session.</p>
-        <p className="hint">
-          {data?.location?.circuit
-            ? `No coordinates on file for ${data.location.circuit}.`
-            : 'Could not resolve the circuit location or date.'}
-        </p>
-      </div>
-    );
-  }
-
-  const loc = data.location;
+  // ---- render guards (map still renders so it can preload) ----------------
+  const showWeather = status === 'ok' && data?.available;
 
   return (
-    <div className="conditions-view">
+    <div className={`conditions-view ${panelCollapsed ? 'panels-collapsed'
+                                                       : 'panels-open'}`}>
       <div className="cond-header">
         <div>
-          <h2>{loc.event_name || loc.circuit}</h2>
-          <p className="hint">{loc.circuit}{loc.country ? `, ${loc.country}` : ''}
-            {' · '}{data.date}</p>
+          <h2>{loc?.event_name || loc?.circuit || 'Track conditions'}</h2>
+          <p className="hint">
+            {loc?.circuit || ''}{loc?.country ? `, ${loc.country}` : ''}
+            {data?.date ? ` · ${data.date}` : ''}
+          </p>
         </div>
         {summary?.weather && (
           <div className="cond-now">
@@ -129,57 +158,94 @@ export default function ConditionsView({ year, round, session }) {
         )}
       </div>
 
-      <div className="cond-grid">
-        <WeatherCard label="Air temp"
-          value={fmt(summary?.air_temp, '°C')} accent="#ff7a1a" />
-        <WeatherCard label="Track temp (est.)"
-          value={fmt(summary?.track_temp, '°C')} accent="#ff3b3b"
-          note="estimated from air temp + cloud" />
-        <WeatherCard label="Humidity"
-          value={fmt(summary?.humidity, '%')} accent="#36d1ff" />
-        <WeatherCard label="Precipitation"
-          value={fmt(summary?.precipitation, ' mm')} accent="#4a9eff" />
-        <WeatherCard label="Cloud cover"
-          value={fmt(summary?.cloud_cover, '%')} accent="#9aa4b2" />
-        <WindCard speed={summary?.wind_speed}
-          direction={summary?.wind_direction} />
-      </div>
-
-      <div className="cond-lower">
-        <div className="cond-timeline">
-          <div className="cond-timeline-head">
-            <h3>Conditions through the day</h3>
-            <div className="res-toggle">
-              <button className={res === 'hourly' ? 'on' : ''}
-                      onClick={() => setRes('hourly')}>HOURLY</button>
-              <button className={res === '15min' ? 'on' : ''}
-                      onClick={() => setRes('15min')}>15 MIN</button>
+      <div className="cond-layout">
+        {/* LEFT: square map on top, timeline below */}
+        <div className="cond-left">
+          <div className="cond-map-card">
+            <div className="cond-map-head">
+              <h3>Circuit location</h3>
+              <div className="map-toggle">
+                <button className={mapStyle === 'map' ? 'on' : ''}
+                        onClick={() => setMapStyle('map')}>🗺 MAP</button>
+                <button className={mapStyle === 'satellite' ? 'on' : ''}
+                        onClick={() => setMapStyle('satellite')}>🛰 SAT</button>
+              </div>
+            </div>
+            <div className="cond-map-square">
+              <div ref={mapRef} className="cond-map" />
+              {!tilesReady && (
+                <div className="map-loading">Loading map…</div>
+              )}
+              {lat == null && (
+                <div className="map-loading">
+                  No coordinates for this circuit.</div>
+              )}
             </div>
           </div>
-          {res === '15min' && (
-            <p className="hint interp-note">15-minute points are cubic-
-            interpolated between hourly readings (Open-Meteo's archive
-            resolution is hourly).</p>
-          )}
-          <TempChart series={series} />
+
+          <div className="cond-timeline-card">
+            <h3>Conditions through the day</h3>
+            {showWeather ? (
+              <>
+                <TempChart series={series} />
+                <div className="chart-legend">
+                  <span className="cl-item">
+                    <svg width="22" height="8"><line x1="0" y1="4" x2="22"
+                      y2="4" stroke="#ff7a1a" strokeWidth="2" /></svg>
+                    Air temp
+                  </span>
+                  <span className="cl-item">
+                    <svg width="22" height="8"><line x1="0" y1="4" x2="22"
+                      y2="4" stroke="#ff3b3b" strokeWidth="2"
+                      strokeDasharray="4 3" /></svg>
+                    Track temp (est.)
+                  </span>
+                </div>
+                <p className="hint">15-minute points are interpolated from
+                Open-Meteo's hourly archive. X-axis ticks mark the hourly
+                readings.</p>
+              </>
+            ) : (
+              <p className="hint">
+                {status === 'loading' ? 'Loading weather…'
+                  : 'Weather data is unavailable for this session.'}</p>
+            )}
+          </div>
         </div>
 
-        <div className="cond-map-wrap">
-          <h3>Circuit location</h3>
-          <div ref={mapRef} className="cond-map" />
-          <p className="hint">© OpenStreetMap</p>
+        {/* RIGHT: weather cards, 2-col when panels collapsed else 1-col */}
+        <div className="cond-cards">
+          {showWeather ? (
+            <>
+              <WeatherCard label="Air temp"
+                value={fmt(summary?.air_temp, '°C')} accent="#ff7a1a" />
+              <WeatherCard label="Track temp (est.)"
+                value={fmt(summary?.track_temp, '°C')} accent="#ff3b3b" />
+              <WeatherCard label="Humidity"
+                value={fmt(summary?.humidity, '%')} accent="#36d1ff" />
+              <WeatherCard label="Precipitation"
+                value={fmt(summary?.precipitation, ' mm')} accent="#4a9eff" />
+              <WeatherCard label="Cloud cover"
+                value={fmt(summary?.cloud_cover, '%')} accent="#9aa4b2" />
+              <WindCard speed={summary?.wind_speed}
+                direction={summary?.wind_direction} />
+            </>
+          ) : (
+            <p className="hint">
+              {status === 'loading' ? 'Loading…'
+                : 'No weather readings to show.'}</p>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function WeatherCard({ label, value, accent, note }) {
+function WeatherCard({ label, value, accent }) {
   return (
     <div className="weather-card" style={{ '--accent': accent }}>
       <span className="wc-label">{label}</span>
       <span className="wc-value">{value}</span>
-      {note && <span className="wc-note">{note}</span>}
     </div>
   );
 }
@@ -192,48 +258,73 @@ function WindCard({ speed, direction }) {
       <div className="wind-rose">
         <svg viewBox="0 0 60 60">
           <circle cx="30" cy="30" r="26" className="wr-ring" />
-          <line x1="30" y1="30" x2="30" y2="8"
-                className="wr-needle"
+          <line x1="30" y1="30" x2="30" y2="8" className="wr-needle"
                 transform={`rotate(${dir} 30 30)`} />
           <text x="30" y="7" className="wr-n">N</text>
         </svg>
       </div>
       <span className="wc-value">
-        {speed != null ? `${speed.toFixed(0)}` : '—'}
-        <small> km/h</small></span>
+        {speed != null ? `${speed.toFixed(0)}` : '—'}<small> km/h</small></span>
     </div>
   );
 }
 
 function TempChart({ series }) {
-  const W = 800, H = 180, P = 30;
+  const W = 760, H = 200, L = 44, R = 12, T = 16, B = 34;
   if (!series?.length) return <div className="hint">No readings.</div>;
-  const temps = series.map((s) => s.air_temp).filter((v) => v != null);
+  const temps = [];
+  for (const s of series) {
+    if (s.air_temp != null) temps.push(s.air_temp);
+    if (s.track_temp != null) temps.push(s.track_temp);
+  }
   if (!temps.length) return <div className="hint">No temperature data.</div>;
-  const min = Math.min(...temps) - 1, max = Math.max(...temps) + 1;
+  const min = Math.floor(Math.min(...temps) - 1);
+  const max = Math.ceil(Math.max(...temps) + 1);
   const n = series.length;
-  const x = (i) => P + (i / (n - 1)) * (W - 2 * P);
-  const y = (v) => H - P - ((v - min) / (max - min || 1)) * (H - 2 * P);
+  const x = (i) => L + (i / (n - 1)) * (W - L - R);
+  const y = (v) => H - B - ((v - min) / (max - min || 1)) * (H - T - B);
 
-  const line = (key) => series.map((s, i) =>
+  const path = (key) => series.map((s, i) =>
     s[key] == null ? null : `${x(i).toFixed(1)},${y(s[key]).toFixed(1)}`)
     .filter(Boolean).map((p, i) => (i ? 'L' : 'M') + p).join(' ');
 
-  const labelIdx = [0, Math.floor(n / 2), n - 1];
+  // y gridlines at min, mid, max
+  const yTicks = [min, Math.round((min + max) / 2), max];
+  // x ticks only at original hourly points (not interpolated)
+  const xTicks = series.map((s, i) => ({ i, s }))
+    .filter(({ s }) => !s.interpolated);
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="temp-chart"
-         preserveAspectRatio="none">
-      <path d={line('track_temp')} className="tc-track" />
-      <path d={line('air_temp')} className="tc-air" />
-      {labelIdx.map((i) => (
-        <text key={i} x={x(i)} y={H - 8} textAnchor="middle"
-              className="tc-xlabel">
-          {(series[i].time || '').slice(11, 16)}
-        </text>
+         preserveAspectRatio="xMidYMid meet">
+      {/* y gridlines + labels */}
+      {yTicks.map((v) => (
+        <g key={v}>
+          <line x1={L} y1={y(v)} x2={W - R} y2={y(v)} className="tc-grid" />
+          <text x={L - 8} y={y(v) + 4} textAnchor="end"
+                className="tc-axislabel">{v}</text>
+        </g>
       ))}
-      <text x={P} y={16} className="tc-legend tc-air-l">air</text>
-      <text x={P + 34} y={16} className="tc-legend tc-track-l">track est.</text>
+      {/* y axis title */}
+      <text x={14} y={H / 2} className="tc-axistitle"
+            transform={`rotate(-90 14 ${H / 2})`}>TEMPERATURE (°C)</text>
+
+      {/* x ticks at hourly readings */}
+      {xTicks.map(({ i, s }) => (
+        <g key={i}>
+          <line x1={x(i)} y1={H - B} x2={x(i)} y2={H - B + 4}
+                className="tc-grid" />
+          <text x={x(i)} y={H - B + 16} textAnchor="middle"
+                className="tc-axislabel">
+            {(s.time || '').slice(11, 16)}</text>
+        </g>
+      ))}
+      {/* x axis title */}
+      <text x={(L + W - R) / 2} y={H - 4} textAnchor="middle"
+            className="tc-axistitle">TIME (local)</text>
+
+      <path d={path('track_temp')} className="tc-track" />
+      <path d={path('air_temp')} className="tc-air" />
     </svg>
   );
 }
@@ -243,7 +334,6 @@ function fmt(v, unit) {
   return `${typeof v === 'number' ? v.toFixed(1) : v}${unit}`;
 }
 
-// cubic (Catmull-Rom) interpolation of hourly readings to 15-minute points
 function interpolateQuarterHour(hourly) {
   const keys = ['air_temp', 'track_temp', 'humidity', 'precipitation',
                 'cloud_cover', 'wind_speed', 'wind_direction'];
@@ -265,11 +355,12 @@ function interpolateQuarterHour(hourly) {
         pt[k] = (a == null || b == null || c == null || d == null)
           ? (b ?? null) : cr(a, b, c, d, t);
       }
-      if (pt.weather === undefined) pt.weather = p1.weather;
+      pt.weather = p1.weather;
       out.push(pt);
     }
   }
-  out.push(hourly[hourly.length - 1]);
+  const last = { ...hourly[hourly.length - 1], interpolated: false };
+  out.push(last);
   return out;
 }
 

@@ -206,6 +206,15 @@ def _prepare(req: ReplayRequest) -> dict:
         meta["sector_distances"] = None
         meta["drs_zones"] = []
 
+    # circuit GPS + date, so the Conditions map can preload the moment the
+    # replay starts (no wait for the user to open the tab). Best-effort.
+    try:
+        meta["circuit_location"] = f1.circuit_location(
+            req.year, req.round, req.session)
+    except Exception:                                     # noqa: BLE001
+        log.exception("circuit location attach failed")
+        meta["circuit_location"] = None
+
     scored_laps = {}
 
     for drv, info in comp["drivers"].items():
