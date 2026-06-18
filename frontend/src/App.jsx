@@ -7,6 +7,7 @@ import ControlPanel from './components/ControlPanel';
 import TelemetryView from './components/TelemetryView';
 import TrackMapView from './components/TrackMapView';
 import SectorTable from './components/SectorTable';
+import ConditionsView from './components/ConditionsView';
 import SessionView from './components/SessionView';
 import HistoryView from './components/HistoryView';
 import AnomalySidebar from './components/AnomalySidebar';
@@ -423,6 +424,15 @@ export default function App() {
             <ErrorBoundary name="Session">
             <SessionView driverMeta={driverMeta} sessionRef={sessionRef}
                          onPickLap={handlePickLap} />
+            </ErrorBoundary>
+          </div>
+          <div className={tab === 'conditions' ? '' : 'hidden'}>
+            <ErrorBoundary name="Conditions">
+            <ConditionsView
+              year={sessionRef?.year}
+              round={sessionRef?.round}
+              session={sessionRef?.session}
+            />
             </ErrorBoundary>
           </div>
           <div className={tab === 'history' ? '' : 'hidden'}>

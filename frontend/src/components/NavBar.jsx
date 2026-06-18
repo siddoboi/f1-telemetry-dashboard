@@ -4,6 +4,7 @@ const TABS = [
   { id: 'telemetry', label: 'TELEMETRY' },
   { id: 'trackmap', label: 'TRACK MAP' },
   { id: 'session', label: 'SESSION' },
+  { id: 'conditions', label: 'CONDITIONS' },
   { id: 'history', label: 'HISTORY' },
 ];
 
