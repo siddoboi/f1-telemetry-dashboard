@@ -290,9 +290,12 @@ function TempChart({ series }) {
 
   // y gridlines at min, mid, max
   const yTicks = [min, Math.round((min + max) / 2), max];
-  // x ticks only at original hourly points (not interpolated)
-  const xTicks = series.map((s, i) => ({ i, s }))
+  // x ticks only at original hourly points, thinned if too many to fit
+  const allHourly = series.map((s, i) => ({ i, s }))
     .filter(({ s }) => !s.interpolated);
+  // show at most 8 ticks; skip evenly if more
+  const step = Math.ceil(allHourly.length / 8);
+  const xTicks = allHourly.filter((_, idx) => idx % step === 0);
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="temp-chart"
