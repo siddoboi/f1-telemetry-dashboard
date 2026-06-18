@@ -6,6 +6,7 @@
 //  - driver flag badges offset perpendicular to the racing line, dynamically
 //    to the outward side so they don't cover the track or other dots
 import { useMemo, useState } from 'react';
+import { EmptyState } from './EmptyState';
 
 const PAD = 48;
 const SECTOR_COLORS = { s1: '#ff7a1a', s2: '#ffd21a', s3: '#36d1ff' };
@@ -56,11 +57,9 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
 
   if (!geom) {
     return (
-      <div className="empty">
-        <p>The track map appears once a replay is loaded.</p>
-        <p className="hint">The circuit outline is built from the baseline
-        lap's GPS data. Live mode has no track outline.</p>
-      </div>
+      <EmptyState icon="map"
+        title="No track map yet"
+        hint="The circuit outline is built from the baseline lap's GPS data once a replay is loaded." />
     );
   }
 
