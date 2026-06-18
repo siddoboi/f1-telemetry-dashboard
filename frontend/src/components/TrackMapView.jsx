@@ -17,16 +17,6 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
                                        preparing = false }) {
   const [hover, setHover] = useState(null);
 
-  if (preparing && !track?.x?.length) {
-    return (
-      <div className="trackmap-skeleton">
-        <SkeletonBlock height={420} radius={8} />
-        <SkeletonBlock height={90} radius={6} className="sk-mt" />
-        <p className="sk-note">Preparing track map…</p>
-      </div>
-    );
-  }
-
   const geom = useMemo(() => {
     if (!track?.x?.length) return null;
     const xs = track.x, ys = track.y;
@@ -65,6 +55,17 @@ export default function TrackMapView({ track, driverMeta, driverPositions,
     return { d, sx, sy, cx, cy, idxByDist, ptAt, lookupByDist, tangentAt,
              height: PAD * 2 + h * scale };
   }, [track]);
+
+  // skeleton: shown while a replay is preparing (all hooks already ran above)
+  if (preparing && !geom) {
+    return (
+      <div className="trackmap-skeleton">
+        <SkeletonBlock height={420} radius={8} />
+        <SkeletonBlock height={90} radius={6} className="sk-mt" />
+        <p className="sk-note">Preparing track map…</p>
+      </div>
+    );
+  }
 
   if (!geom) {
     return (
