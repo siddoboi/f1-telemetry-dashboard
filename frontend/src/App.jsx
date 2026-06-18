@@ -68,7 +68,7 @@ export default function App() {
   const rafRef = useRef(null);
   const [running, setRunning] = useState(false);
   const [paused, setPaused] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [focusedEvent, setFocusedEvent] = useState(null);
   const [visibleDistance, setVisibleDistance] = useState(0);
   const [driverPositions, setDriverPositions] = useState({});
@@ -396,6 +396,7 @@ export default function App() {
               fullRange={fullRange}
               hasBaseline={!!meta && meta.baseline_mode !== 'off'}
               sectorDistances={meta?.sector_distances || null}
+              running={running && !points.length}
             />
             </ErrorBoundary>
           </div>
