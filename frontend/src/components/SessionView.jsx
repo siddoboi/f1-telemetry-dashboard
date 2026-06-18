@@ -7,6 +7,7 @@ import {
   CartesianGrid, Legend,
 } from 'recharts';
 import { getLaps } from '../api/client';
+import { EmptyState } from './EmptyState';
 
 export default function SessionView({ driverMeta, sessionRef, onPickLap }) {
   const [lapsByDriver, setLapsByDriver] = useState({});
@@ -37,8 +38,11 @@ export default function SessionView({ driverMeta, sessionRef, onPickLap }) {
   }, [lapsByDriver]);
 
   if (!sessionRef || !drivers.length) {
-    return <div className="empty"><p>Load a replay first — the full session
-      timeline for those drivers appears here.</p></div>;
+    return (
+      <EmptyState icon="session"
+        title="No session loaded"
+        hint="Load a replay first — the full session lap timeline for those drivers appears here." />
+    );
   }
   if (error) {
     return <div className="empty"><p>Couldn't load session laps:
