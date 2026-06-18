@@ -49,6 +49,77 @@ def get_session_types(year: int, rnd: int) -> list[str]:
     return ["FP1", "FP2", "FP3", "Q", "R"]
 
 
+def circuit_location(year: int, rnd: int, session: str) -> dict:
+    """Resolve the circuit GPS coordinate and the session's local date, used
+    to query historical weather. Coordinates come from a built-in table keyed
+    by circuit location (FastF1's schedule doesn't reliably expose lat/long),
+    the session date from FastF1."""
+    ev = fastf1.get_event(year, rnd)
+    location = str(ev.get("Location", ""))
+    country = str(ev.get("Country", ""))
+
+    coords = _CIRCUIT_COORDS.get(location)
+
+    # session date
+    date = None
+    try:
+        sess = ev.get_session_date(session) if hasattr(ev, "get_session_date") \
+            else None
+        date = sess
+    except Exception:                                       # noqa: BLE001
+        date = None
+    if date is None:
+        date = ev.get("EventDate")
+    date_iso = None
+    if date is not None:
+        try:
+            date_iso = date.strftime("%Y-%m-%d")
+        except Exception:                                   # noqa: BLE001
+            date_iso = str(date)[:10]
+
+    return {
+        "circuit": location,
+        "country": country,
+        "event_name": str(ev.get("EventName", "")),
+        "latitude": coords[0] if coords else None,
+        "longitude": coords[1] if coords else None,
+        "date": date_iso,
+    }
+
+
+# Circuit coordinates keyed by FastF1 'Location' (city/venue name). Covers the
+# current calendar; unknown locations return None and the UI shows a notice.
+_CIRCUIT_COORDS = {
+    "Sakhir": (26.0325, 50.5106),
+    "Jeddah": (21.6319, 39.1044),
+    "Melbourne": (-37.8497, 144.968),
+    "Suzuka": (34.8431, 136.541),
+    "Shanghai": (31.3389, 121.220),
+    "Miami": (25.9581, -80.2389),
+    "Imola": (44.3439, 11.7167),
+    "Monaco": (43.7347, 7.42056),
+    "Montréal": (45.5000, -73.5228),
+    "Montreal": (45.5000, -73.5228),
+    "Barcelona": (41.5700, 2.26111),
+    "Spielberg": (47.2197, 14.7647),
+    "Silverstone": (52.0786, -1.01694),
+    "Budapest": (47.5789, 19.2486),
+    "Spa-Francorchamps": (50.4372, 5.97139),
+    "Zandvoort": (52.3888, 4.54092),
+    "Monza": (45.6156, 9.28111),
+    "Baku": (40.3725, 49.8533),
+    "Singapore": (1.29139, 103.864),
+    "Austin": (30.1328, -97.6411),
+    "Mexico City": (19.4042, -99.0907),
+    "São Paulo": (-23.7036, -46.6997),
+    "Sao Paulo": (-23.7036, -46.6997),
+    "Las Vegas": (36.1147, -115.173),
+    "Lusail": (25.4900, 51.4542),
+    "Yas Island": (24.4672, 54.6031),
+    "Abu Dhabi": (24.4672, 54.6031),
+}
+
+
 # --------------------------------------------------------------------------
 # Session loading (cached in-process; FastF1 also caches on disk)
 # --------------------------------------------------------------------------

@@ -37,6 +37,7 @@ from fastapi.responses import JSONResponse
 
 from app import config
 from app.data import database, fastf1_loader as f1, openf1_client as of1
+from app.data import weather_client
 from app.export import report as export_report
 from app.logging_setup import setup_logging
 from app.ml.anomaly_detector import (AnomalyDetector, extract_events,
@@ -129,6 +130,22 @@ async def history():
 async def circuit(year: int, rnd: int, session: str):
     """Corners, sector boundary distances, and DRS zones for the circuit."""
     return await run_in_threadpool(f1.get_circuit_info, year, rnd, session)
+
+
+@app.get("/api/weather/{year}/{rnd}/{session}")
+async def weather(year: int, rnd: int, session: str):
+    """Historical track conditions (Open-Meteo) for the session date."""
+    loc = await run_in_threadpool(f1.circuit_location, year, rnd, session)
+    if not loc.get("latitude") or not loc.get("date"):
+        return {"available": False, "reason": "no_coordinates_or_date",
+                "location": loc}
+    try:
+        wx = await weather_client.fetch_session_weather(
+            loc["latitude"], loc["longitude"], loc["date"])
+    except Exception as exc:                                # noqa: BLE001
+        log.exception("weather fetch failed")
+        return {"available": False, "reason": str(exc), "location": loc}
+    return {"available": True, "location": loc, **wx}
 
 
 # -------------------------------------------------------------- export ----
