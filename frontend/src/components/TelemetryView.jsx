@@ -8,13 +8,15 @@
 import { useEffect, useRef, useState } from 'react';
 import TelemetryCharts, { CHART_DEFS } from './TelemetryCharts';
 import Minimap, { wheelZoom } from './Minimap';
+import { EmptyState, ChartSkeleton } from './EmptyState';
 
 export default function TelemetryView({ points, driverMeta, events,
                                         onEventClick, domain, setDomain,
                                         fullRange, hasBaseline = true,
                                         focusedEvent = null,
                                         playhead = 0, onSeek,
-                                        sectorDistances = null }) {
+                                        sectorDistances = null,
+                                        running = false }) {
   const [driverMode, setDriverMode] = useState('stacked');
   const [channel, setChannel] = useState('speed');
   const areaRef = useRef(null);
@@ -35,16 +37,26 @@ export default function TelemetryView({ points, driverMeta, events,
   }, []);
 
   if (!points.length) {
-    return (
-      <div className="empty">
-        <p>Start a replay (or go live) from the control panel to see
-        telemetry here.</p>
-      </div>
-    );
+    return running
+      ? <ChartSkeleton rows={1} />
+      : (
+        <EmptyState icon="chart"
+          title="No telemetry yet"
+          hint="Pick a session and drivers in the control panel, then start a replay to see synchronized telemetry here." />
+      );
   }
 
   const drivers = Object.keys(driverMeta);
   const def = CHART_DEFS.find((d) => d.key === channel);
+
+  // if every selected driver is on the same team, surface that team's colour
+  // on the active channel tab (else leave it the default white underline)
+  const sharedTeamColor = (() => {
+    const metas = Object.values(driverMeta);
+    if (metas.length < 1) return null;
+    const teams = new Set(metas.map((m) => m?.team).filter(Boolean));
+    return teams.size === 1 ? (metas[0]?.color || null) : null;
+  })();
 
   return (
     <div className="telemetry-view" ref={areaRef}>
@@ -54,6 +66,9 @@ export default function TelemetryView({ points, driverMeta, events,
                      .map((d) => (
             <button key={d.key}
                     className={`chan-tab ${channel === d.key ? 'on' : ''}`}
+                    style={channel === d.key && sharedTeamColor
+                      ? { borderBottomColor: sharedTeamColor,
+                          color: 'var(--text)' } : undefined}
                     onClick={() => setChannel(d.key)}>
               {d.key.toUpperCase()}
             </button>
