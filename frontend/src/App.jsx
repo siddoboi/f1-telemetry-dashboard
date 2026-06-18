@@ -48,6 +48,7 @@ function ExportMenu() {
 export default function App() {
   const [tab, setTab] = useState('telemetry');
   const [status, setStatus] = useState('');
+  const [statusDismissed, setStatusDismissed] = useState(false);
   const [meta, setMeta] = useState(null);
   const [points, setPoints] = useState([]);
   // Smoothly-interpolated values the views actually render. These ease toward
@@ -205,9 +206,11 @@ export default function App() {
   }, []);
 
   const makeClient = (isLive) => new ReplayClient({
-    onStatus: (m) => setStatus(m.message),
-    onError: (m) => { setStatus(`Error: ${m.message}`); setRunning(false); },
-    onComplete: () => { flush(); setStatus('Replay complete.'); },
+    onStatus: (m) => { setStatus(m.message); setStatusDismissed(false); },
+    onError: (m) => { setStatus(`Error: ${m.message}`);
+                      setStatusDismissed(false); setRunning(false); },
+    onComplete: () => { flush(); setStatus('Replay complete.');
+                        setStatusDismissed(false); },
     onMeta: (m) => {
       setMeta(m); setStatus('');
       if (!isLive) {
@@ -383,7 +386,14 @@ export default function App() {
             </header>
           )}
 
-          {status && <div className="status-bar">{status}</div>}
+          {status && !statusDismissed && (
+            <div className="status-bar">
+              <span>{status}</span>
+              <button className="status-dismiss"
+                      onClick={() => setStatusDismissed(true)}
+                      aria-label="Dismiss">×</button>
+            </div>
+          )}
 
           <div className={tab === 'telemetry' ? '' : 'hidden'}>
             <ErrorBoundary name="Telemetry">
@@ -411,6 +421,7 @@ export default function App() {
               onEventClick={focusEvent} focusedEvent={focusedEvent}
               corners={meta?.corners || []}
               sectorDistances={meta?.sector_distances || null}
+              preparing={running && !meta}
             />
             {meta && sectorTimes && (
               <SectorTable

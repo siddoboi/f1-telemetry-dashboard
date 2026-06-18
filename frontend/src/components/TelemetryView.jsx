@@ -67,8 +67,7 @@ export default function TelemetryView({ points, driverMeta, events,
             <button key={d.key}
                     className={`chan-tab ${channel === d.key ? 'on' : ''}`}
                     style={channel === d.key && sharedTeamColor
-                      ? { borderBottomColor: sharedTeamColor,
-                          color: 'var(--text)' } : undefined}
+                      ? { borderBottomColor: sharedTeamColor } : undefined}
                     onClick={() => setChannel(d.key)}>
               {d.key.toUpperCase()}
             </button>

@@ -6,15 +6,26 @@
 //  - driver flag badges offset perpendicular to the racing line, dynamically
 //    to the outward side so they don't cover the track or other dots
 import { useMemo, useState } from 'react';
-import { EmptyState } from './EmptyState';
+import { EmptyState, SkeletonBlock } from './EmptyState';
 
 const PAD = 48;
 const SECTOR_COLORS = { s1: '#ff7a1a', s2: '#ffd21a', s3: '#36d1ff' };
 
 export default function TrackMapView({ track, driverMeta, driverPositions,
                                        events, onEventClick, focusedEvent = null,
-                                       corners = [], sectorDistances = null }) {
+                                       corners = [], sectorDistances = null,
+                                       preparing = false }) {
   const [hover, setHover] = useState(null);
+
+  if (preparing && !track?.x?.length) {
+    return (
+      <div className="trackmap-skeleton">
+        <SkeletonBlock height={420} radius={8} />
+        <SkeletonBlock height={90} radius={6} className="sk-mt" />
+        <p className="sk-note">Preparing track map…</p>
+      </div>
+    );
+  }
 
   const geom = useMemo(() => {
     if (!track?.x?.length) return null;

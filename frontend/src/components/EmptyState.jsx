@@ -26,6 +26,32 @@ export function ChartSkeleton({ rows = 1 }) {
   );
 }
 
+// A single shimmer block of arbitrary height (px) and optional border radius.
+export function SkeletonBlock({ height = 200, radius = 8, className = '' }) {
+  return (
+    <div className={`sk-block ${className}`}
+         style={{ height: typeof height === 'number' ? `${height}px` : height,
+                  borderRadius: radius }}>
+      <div className="sk-shimmer" />
+    </div>
+  );
+}
+
+// A grid of shimmer cards (for weather cards, lap cards, etc.).
+export function SkeletonGrid({ count = 6, minWidth = 150, height = 80 }) {
+  return (
+    <div className="sk-grid"
+         style={{ gridTemplateColumns:
+                    `repeat(auto-fill, minmax(${minWidth}px, 1fr))` }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="sk-block" style={{ height: `${height}px` }}>
+          <div className="sk-shimmer" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const ICONS = {
   chart: (
     <svg viewBox="0 0 48 48" width="48" height="48" fill="none">

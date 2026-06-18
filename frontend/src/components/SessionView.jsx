@@ -7,7 +7,7 @@ import {
   CartesianGrid, Legend,
 } from 'recharts';
 import { getLaps } from '../api/client';
-import { EmptyState } from './EmptyState';
+import { EmptyState, SkeletonBlock, SkeletonGrid } from './EmptyState';
 
 export default function SessionView({ driverMeta, sessionRef, onPickLap }) {
   const [lapsByDriver, setLapsByDriver] = useState({});
@@ -47,6 +47,15 @@ export default function SessionView({ driverMeta, sessionRef, onPickLap }) {
   if (error) {
     return <div className="empty"><p>Couldn't load session laps:
       {' '}{error}</p></div>;
+  }
+  if (!Object.keys(lapsByDriver).length) {
+    return (
+      <div className="session-skeleton">
+        <SkeletonBlock height={220} radius={8} />
+        <SkeletonGrid count={10} minWidth={90} height={70} />
+        <p className="sk-note">Loading session laps…</p>
+      </div>
+    );
   }
 
   const fmt = (s) => {

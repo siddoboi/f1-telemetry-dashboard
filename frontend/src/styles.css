@@ -276,7 +276,17 @@ select:focus-visible, button:focus-visible {
   border: 1px solid var(--grid);
   border-radius: 4px;
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
+.status-dismiss {
+  background: none; border: none; color: var(--text-dim);
+  font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px;
+  border-radius: 3px; flex-shrink: 0;
+}
+.status-dismiss:hover { color: var(--text); background: var(--panel-2); }
 
 /* ----------------------------------------------------------- telemetry --- */
 .telemetry-toolbar {
@@ -942,3 +952,17 @@ select:focus-visible, button:focus-visible {
 }
 .sk-note { text-align: center; color: var(--text-dim); font-size: 12px;
   font-family: 'IBM Plex Mono', monospace; }
+
+/* ============================ Bundle F.2 — skeleton blocks ============================ */
+.sk-block { position: relative; overflow: hidden;
+  background: var(--panel-2); border: 1px solid var(--grid); }
+.sk-block .sk-shimmer { position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent 0%,
+    rgba(255,255,255,0.05) 50%, transparent 100%);
+  animation: shimmer 1.4s infinite; }
+.sk-mt { margin-top: 12px; }
+.sk-grid { display: grid; gap: 12px; }
+.trackmap-skeleton, .session-skeleton { padding: 16px;
+  display: flex; flex-direction: column; gap: 12px; }
+.cond-map-empty { display: flex; align-items: center; justify-content: center; }
+.cond-map-empty .empty-state { min-height: 0; }

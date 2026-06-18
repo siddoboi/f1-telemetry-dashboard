@@ -5,6 +5,7 @@
 // Weather timeline is always cubic-interpolated to 15-min points for a smooth
 // curve; X-axis is labelled only at the original hourly timestamps.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EmptyState, SkeletonBlock, SkeletonGrid } from './EmptyState';
 
 const ICONS = {
   sun: '☀', 'cloud-sun': '⛅', cloud: '☁', fog: '🌫', drizzle: '🌦',
@@ -172,13 +173,18 @@ export default function ConditionsView({ year, round, session,
               </div>
             </div>
             <div className="cond-map-square">
-              <div ref={mapRef} className="cond-map" />
-              {!tilesReady && (
-                <div className="map-loading">Loading map…</div>
-              )}
-              {lat == null && (
-                <div className="map-loading">
-                  No coordinates for this circuit.</div>
+              {lat == null ? (
+                <div className="cond-map cond-map-empty">
+                  <EmptyState icon="map" title="No coordinates"
+                    hint="This circuit isn't in the location table yet." />
+                </div>
+              ) : (
+                <>
+                  <div ref={mapRef} className="cond-map" />
+                  {!tilesReady && (
+                    <div className="map-loading">Loading map…</div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -205,10 +211,11 @@ export default function ConditionsView({ year, round, session,
                 Open-Meteo's hourly archive. X-axis ticks mark the hourly
                 readings.</p>
               </>
+            ) : status === 'loading' ? (
+              <SkeletonBlock height={200} radius={6} />
             ) : (
-              <p className="hint">
-                {status === 'loading' ? 'Loading weather…'
-                  : 'Weather data is unavailable for this session.'}</p>
+              <p className="hint">Weather data is unavailable for this
+              session.</p>
             )}
           </div>
         </div>
@@ -230,10 +237,10 @@ export default function ConditionsView({ year, round, session,
               <WindCard speed={summary?.wind_speed}
                 direction={summary?.wind_direction} />
             </>
+          ) : status === 'loading' ? (
+            <SkeletonGrid count={6} minWidth={140} height={84} />
           ) : (
-            <p className="hint">
-              {status === 'loading' ? 'Loading…'
-                : 'No weather readings to show.'}</p>
+            <p className="hint">No weather readings to show.</p>
           )}
         </div>
       </div>
