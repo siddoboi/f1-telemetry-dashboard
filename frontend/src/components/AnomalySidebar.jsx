@@ -55,7 +55,9 @@ export default function AnomalySidebar({ events, validation, driverMeta,
               </div>
               <div className="event-label">{ev.label}</div>
               <div className="event-range">
-                {Math.round(ev.start_distance)} m – {Math.round(ev.end_distance)} m
+                <span className="dist-pill">{Math.round(ev.start_distance)} m</span>
+                <span className="dist-arrow">→</span>
+                <span className="dist-pill">{Math.round(ev.end_distance)} m</span>
               </div>
               <p className="event-diag">{ev.diagnosis}</p>
             </div>
