@@ -64,6 +64,14 @@ export default function HomeView({ onStart }) {
           <ConditionsMotif />
         </FeatureCard>
       </section>
+
+      <footer className="home-footer">
+        <span>Built by <strong>Shaivya</strong> ·{' '}
+          <a href="https://github.com/siddoboi/f1-telemetry-dashboard"
+             target="_blank" rel="noreferrer">GitHub</a>
+        </span>
+        <span className="hf-data">Data: FastF1 · Open-Meteo · OpenStreetMap</span>
+      </footer>
     </div>
   );
 }
