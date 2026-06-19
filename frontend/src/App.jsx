@@ -344,8 +344,13 @@ export default function App() {
     setStatus(''); setStatusDismissed(false);
 
     const drivers = Object.keys(driverMeta);
-    // find the frame index at/after the start distance
-    let startIdx = points.findIndex((p) => (p.distance ?? 0) >= startDist);
+    // find the first frame at/after the start distance that has real timing
+    // data (skips any unfilled baseline-only placeholder rows)
+    let startIdx = points.findIndex((p) =>
+      (p.distance ?? 0) >= startDist && p.time_s != null);
+    if (startIdx < 0) {
+      startIdx = points.findIndex((p) => (p.distance ?? 0) >= startDist);
+    }
     if (startIdx < 0) startIdx = 0;
     const tStart = points[startIdx]?.time_s ?? 0;
     const startWall = performance.now();
@@ -358,8 +363,11 @@ export default function App() {
       }
       const elapsed = (performance.now() - startWall) / 1000;  // 1x seconds
       while (i < points.length - 1) {
-        const ts = points[i + 1]?.time_s ?? null;
-        if (ts == null || (ts - tStart) <= elapsed) i++;
+        const ts = points[i + 1]?.time_s;
+        // a frame with no time_s yet (e.g. unfilled baseline-only row) means
+        // we don't have real timing for it - stop here rather than skip past
+        if (ts == null) break;
+        if ((ts - tStart) <= elapsed) i++;
         else break;
       }
       const row = points[i];
@@ -390,13 +398,9 @@ export default function App() {
   };
   const replayFromStart = () => replayFrom(0);
 
-  // Pause the engine the instant a scrub starts, so live frames stop
-  // overwriting the position the user is dragging to.
+  // Pause is no longer triggered automatically on drag-start (reverted per
+  // request) - dragging the playhead just seeks; it doesn't hold playback.
   const handleSeekStart = () => {
-    if (running && !paused) {
-      clientRef.current?.pause();
-      setPaused(true);
-    }
     scrubbingRef.current = true;
   };
 
