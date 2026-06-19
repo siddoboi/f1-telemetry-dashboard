@@ -1,6 +1,7 @@
 // Top-level navigation. Pure tab switcher - all views stay mounted in App so
 // switching tabs never interrupts a running replay or live feed.
 const TABS = [
+  { id: 'home', label: 'HOME' },
   { id: 'telemetry', label: 'TELEMETRY' },
   { id: 'trackmap', label: 'TRACK MAP' },
   { id: 'session', label: 'SESSION' },

@@ -8,6 +8,7 @@ import TelemetryView from './components/TelemetryView';
 import TrackMapView from './components/TrackMapView';
 import SectorTable from './components/SectorTable';
 import ConditionsView from './components/ConditionsView';
+import HomeView from './components/HomeView';
 import SessionView from './components/SessionView';
 import HistoryView from './components/HistoryView';
 import AnomalySidebar from './components/AnomalySidebar';
@@ -46,7 +47,7 @@ function ExportMenu() {
 }
 
 export default function App() {
-  const [tab, setTab] = useState('telemetry');
+  const [tab, setTab] = useState('home');
   const [status, setStatus] = useState('');
   const [statusDismissed, setStatusDismissed] = useState(false);
   const [meta, setMeta] = useState(null);
@@ -346,7 +347,9 @@ export default function App() {
   return (
     <div className="app">
       <NavBar tab={tab} onTab={setTab} />
-      <div className={`layout ${panelCollapsed ? 'panel-collapsed' : ''}`}>
+      <div className={`layout ${panelCollapsed ? 'panel-collapsed' : ''} `
+                    + `${tab === 'home' ? 'home-mode' : ''}`}>
+        {tab !== 'home' && (
         <ControlPanel
           onStart={handleStart}
           onPause={() => { clientRef.current?.pause(); setPaused(true); }}
@@ -355,9 +358,15 @@ export default function App() {
           running={running} paused={paused}
           collapsed={panelCollapsed} onCollapsedChange={setPanelCollapsed}
         />
+        )}
 
         <main className="main">
-          {meta && (
+          {tab === 'home' && (
+            <ErrorBoundary name="Home">
+              <HomeView onStart={() => setTab('telemetry')} />
+            </ErrorBoundary>
+          )}
+          {meta && tab !== 'home' && (
             <header className="lap-header">
               {Object.entries(meta.drivers).map(([drv, info]) => (
                 <div className="lap-card hoverable" key={drv}
@@ -456,6 +465,7 @@ export default function App() {
           </div>
         </main>
 
+        {tab !== 'home' && (
         <AnomalySidebar
           events={visibleEvents}
           validation={meta?.validation || {}}
@@ -465,6 +475,7 @@ export default function App() {
           focused={focusedEvent}
           onEventClick={focusEvent}
         />
+        )}
       </div>
 
       {hoverProfile && (
