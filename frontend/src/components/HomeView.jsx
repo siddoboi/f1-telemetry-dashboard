@@ -4,7 +4,7 @@
 // Cards 1-3 (telemetry-heavy) use richer animated mini-charts; cards 4-6
 // (Track Map / Session / Conditions) use lighter looping SVG motifs.
 
-export default function HomeView({ onStart }) {
+export default function HomeView({ onStart, onAbout }) {
   return (
     <div className="home-view">
       <section className="home-hero">
@@ -66,9 +66,11 @@ export default function HomeView({ onStart }) {
       </section>
 
       <footer className="home-footer">
-        <span>Built by <strong>Shaivya</strong> ·{' '}
+        <span>Built by <strong>Siddhesh Singh</strong> ·{' '}
           <a href="https://github.com/siddoboi/f1-telemetry-dashboard"
              target="_blank" rel="noreferrer">GitHub</a>
+          {' · '}
+          <button className="hf-link" onClick={onAbout}>About &amp; Support</button>
         </span>
         <span className="hf-data">Data: FastF1 · Open-Meteo · OpenStreetMap</span>
       </footer>

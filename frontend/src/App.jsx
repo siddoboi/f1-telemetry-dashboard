@@ -364,7 +364,8 @@ export default function App() {
         <main className="main">
           {tab === 'home' && (
             <ErrorBoundary name="Home">
-              <HomeView onStart={() => setTab('telemetry')} />
+              <HomeView onStart={() => setTab('telemetry')}
+                        onAbout={() => setTab('about')} />
             </ErrorBoundary>
           )}
           {meta && tab !== 'home' && (

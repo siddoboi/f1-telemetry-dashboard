@@ -1073,6 +1073,10 @@ select:focus-visible, button:focus-visible {
 .home-footer a { color: var(--text); text-decoration: none;
   border-bottom: 1px solid var(--grid); }
 .home-footer a:hover { border-bottom-color: var(--text); }
+.home-footer .hf-link { background: none; border: none; padding: 0;
+  font: inherit; color: var(--text); cursor: pointer;
+  border-bottom: 1px solid var(--grid); }
+.home-footer .hf-link:hover { border-bottom-color: var(--text); }
 .home-footer .hf-data { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
   letter-spacing: 0.03em; }
 

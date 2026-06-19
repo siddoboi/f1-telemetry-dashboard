@@ -55,9 +55,8 @@ export default function AboutView() {
           view with explainable anomalies rather than a black-box score.
         </p>
         <p className="about-note">
-          Built as a final-year capstone project with a dual goal: a deployable
-          prototype and a publishable study of distance-aligned anomaly
-          detection on motorsport telemetry.
+          A personal project exploring distance-aligned telemetry analysis and
+          explainable anomaly detection for motorsport data.
         </p>
       </section>
 
@@ -86,7 +85,7 @@ export default function AboutView() {
       <section className="about-block">
         <h2>Credits &amp; data</h2>
         <p>
-          Built by <strong>Shaivya</strong> ·{' '}
+          Built by <strong>Siddhesh Singh</strong> ·{' '}
           <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>
         </p>
         <p className="about-sources">
