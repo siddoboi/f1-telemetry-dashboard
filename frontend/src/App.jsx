@@ -75,6 +75,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [focusedEvent, setFocusedEvent] = useState(null);
   const [visibleDistance, setVisibleDistance] = useState(0);
+  const liveDistanceRef = useRef(0);   // where the live engine actually is
   const [driverPositions, setDriverPositions] = useState({});
   const [domain, setDomain] = useState(null);     // null = follow full lap
   const [sessionRef, setSessionRef] = useState(null);
@@ -160,13 +161,18 @@ export default function App() {
       pos[drv] = { distance: vals.distance ?? 0,
                    x: vals.x ?? null, y: vals.y ?? null };
     }
+    // Track where the LIVE engine actually is, independent of the scrubbed
+    // display position, so a seek-release can tell forward from backward
+    // relative to the engine's real cursor (not the dragged display value).
+    liveDistanceRef.current = Math.max(0,
+      ...Object.values(pos).map((p) => p.distance));
+
     // While the user is scrubbing the playhead, keep ingesting frame data
     // into `points` (above) but DON'T move the cursor/positions — the drag
     // owns the playhead position until release.
     if (scrubbingRef.current) return;
 
-    const targetDist = Math.max(0,
-      ...Object.values(pos).map((p) => p.distance));
+    const targetDist = liveDistanceRef.current;
 
     // hand the new target to the interpolation loop. seek_fill frames arrive
     // in a burst with no real-time pacing, so snap straight to them.
@@ -340,7 +346,13 @@ export default function App() {
   const replayFrom = (startDist = 0) => {
     if (!points.length) return;
     if (localReplayRef.current) cancelAnimationFrame(localReplayRef.current);
+    // hand off from the live backend stream to the local player so the two
+    // never fight over the cursor position
+    clientRef.current?.stop();
     setCompleted(false); setRunning(true); setPaused(false);
+    pausedRef.current = false;   // sync immediately - don't wait on the
+                                  // paused-state effect, which can lag behind
+                                  // the very first requestAnimationFrame tick
     setStatus(''); setStatusDismissed(false);
 
     const drivers = Object.keys(driverMeta);
@@ -424,14 +436,21 @@ export default function App() {
     setSmoothPositions(pos); setSmoothDistance(d);
   };
 
-  // On release: stay put at the scrubbed position (paused). The user resumes
-  // explicitly. During a live replay we re-sync the backend engine's cursor to
-  // the drop point so Resume continues from here. After completion the whole
-  // lap is buffered, so Resume/Replay use the local player instead.
+  // On release: continue playing from the dropped position.
+  //  - Backward (into already-buffered territory): the backend engine can
+  //    only seek forward from its own cursor, so a backward target is handed
+  //    to the local player, which replays the existing buffer from there.
+  //  - Forward (ahead of where we've played so far): the backend supports
+  //    this directly via seek_to_distance, so we keep using the live engine.
   const handleSeekEnd = (distance) => {
     const d = Math.max(fullRange[0], Math.min(fullRange[1], distance));
     scrubbingRef.current = false;
-    if (!completed) clientRef.current?.seek(d);
+    if (completed) return;             // post-completion: stays paused there
+    if (d <= liveDistanceRef.current) {
+      replayFrom(d);                   // local: engine can't rewind itself
+    } else {
+      clientRef.current?.seek(d);      // forward: backend fast-emits to d
+    }
   };
 
   const focusEvent = (ev) => { setFocusedEvent(ev); setSidebarOpen(true); };
@@ -444,8 +463,10 @@ export default function App() {
         {tab !== 'home' && (
         <ControlPanel
           onStart={handleStart}
-          onPause={() => { clientRef.current?.pause(); setPaused(true); }}
-          onResume={() => { clientRef.current?.resume(); setPaused(false); }}
+          onPause={() => { clientRef.current?.pause();
+                           pausedRef.current = true; setPaused(true); }}
+          onResume={() => { clientRef.current?.resume();
+                            pausedRef.current = false; setPaused(false); }}
           onSpeed={(x) => clientRef.current?.setSpeed(x)}
           onReplayStart={replayFromStart}
           running={running} paused={paused} completed={completed}
