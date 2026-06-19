@@ -6,6 +6,7 @@ const TABS = [
   { id: 'trackmap', label: 'TRACK MAP' },
   { id: 'session', label: 'SESSION' },
   { id: 'conditions', label: 'CONDITIONS' },
+  { id: 'about', label: 'ABOUT' },
   { id: 'history', label: 'HISTORY' },
 ];
 

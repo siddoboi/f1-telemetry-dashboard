@@ -9,6 +9,7 @@ import TrackMapView from './components/TrackMapView';
 import SectorTable from './components/SectorTable';
 import ConditionsView from './components/ConditionsView';
 import HomeView from './components/HomeView';
+import AboutView from './components/AboutView';
 import SessionView from './components/SessionView';
 import HistoryView from './components/HistoryView';
 import AnomalySidebar from './components/AnomalySidebar';
@@ -456,6 +457,11 @@ export default function App() {
               circuitLocation={meta?.circuit_location || null}
               panelCollapsed={panelCollapsed}
             />
+            </ErrorBoundary>
+          </div>
+          <div className={tab === 'about' ? '' : 'hidden'}>
+            <ErrorBoundary name="About">
+            <AboutView />
             </ErrorBoundary>
           </div>
           <div className={tab === 'history' ? '' : 'hidden'}>

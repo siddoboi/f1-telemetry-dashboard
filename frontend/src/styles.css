@@ -1065,3 +1065,48 @@ select:focus-visible, button:focus-visible {
 @media (max-width: 600px) {
   .home-cards { grid-template-columns: 1fr; }
 }
+
+/* ---- home footer ---- */
+.home-footer { display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px; margin-top: 40px; padding-top: 20px;
+  border-top: 1px solid var(--grid); font-size: 13px; color: var(--text-dim); }
+.home-footer a { color: var(--text); text-decoration: none;
+  border-bottom: 1px solid var(--grid); }
+.home-footer a:hover { border-bottom-color: var(--text); }
+.home-footer .hf-data { font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  letter-spacing: 0.03em; }
+
+/* ============================ Bundle G — About ============================ */
+.about-view { max-width: 860px; margin: 0 auto; padding: 24px 24px 60px;
+  overflow-y: auto; max-height: calc(100vh - 52px); }
+.about-block { margin-bottom: 32px; }
+.about-block h2 { font-family: 'Titillium Web', sans-serif; font-size: 20px;
+  font-weight: 700; margin-bottom: 12px; letter-spacing: 0.02em; }
+.about-block p { font-size: 14px; line-height: 1.65; color: var(--text-dim);
+  margin-bottom: 12px; }
+.about-block p strong { color: var(--text); }
+.about-block a { color: var(--text); border-bottom: 1px solid var(--grid);
+  text-decoration: none; }
+.about-block a:hover { border-bottom-color: var(--text); }
+.about-note { font-style: italic; }
+.about-sources { font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+
+.stack-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.stack-item { background: var(--panel-2); border: 1px solid var(--grid);
+  border-radius: 6px; padding: 10px 14px; display: flex; flex-direction: column;
+  gap: 2px; }
+.stack-name { font-family: 'IBM Plex Mono', monospace; font-size: 13px;
+  font-weight: 600; color: var(--text); }
+.stack-role { font-size: 12px; color: var(--text-dim); }
+
+.bug-button { display: inline-block; font-family: 'Titillium Web', sans-serif;
+  font-size: 14px; font-weight: 600; letter-spacing: 0.03em; padding: 10px 20px;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--grid); border-radius: 6px; text-decoration: none;
+  transition: border-color 0.12s, transform 0.1s; }
+.bug-button:hover { border-color: #e74c3c; color: #ff6b5b;
+  transform: translateY(-1px); }
+
+@media (max-width: 600px) {
+  .stack-grid { grid-template-columns: 1fr; }
+}
