@@ -70,6 +70,7 @@ export default function App() {
   });
   const rafRef = useRef(null);
   const [running, setRunning] = useState(false);
+  const [completed, setCompleted] = useState(false);  // lap finished playing
   const [paused, setPaused] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [focusedEvent, setFocusedEvent] = useState(null);
@@ -82,6 +83,9 @@ export default function App() {
     () => localStorage.getItem('pitwall.panelCollapsed') === '1');
   const clientRef = useRef(null);
   const bufferRef = useRef([]);
+  const scrubbingRef = useRef(false);   // true while the user drags the playhead
+  const pausedRef = useRef(false);       // mirror of `paused` for rAF closures
+  useEffect(() => { pausedRef.current = paused; }, [paused]);
   const lastRequestRef = useRef(null);
   const hoverTimer = useRef(null);
 
@@ -156,6 +160,11 @@ export default function App() {
       pos[drv] = { distance: vals.distance ?? 0,
                    x: vals.x ?? null, y: vals.y ?? null };
     }
+    // While the user is scrubbing the playhead, keep ingesting frame data
+    // into `points` (above) but DON'T move the cursor/positions — the drag
+    // owns the playhead position until release.
+    if (scrubbingRef.current) return;
+
     const targetDist = Math.max(0,
       ...Object.values(pos).map((p) => p.distance));
 
@@ -212,7 +221,9 @@ export default function App() {
     onError: (m) => { setStatus(`Error: ${m.message}`);
                       setStatusDismissed(false); setRunning(false); },
     onComplete: () => { flush(); setStatus('Replay complete.');
-                        setStatusDismissed(false); },
+                        setStatusDismissed(false);
+                        setRunning(false); setPaused(false);
+                        setCompleted(true); },
     onMeta: (m) => {
       setMeta(m); setStatus('');
       if (!isLive) {
@@ -291,12 +302,17 @@ export default function App() {
 
   const reset = () => {
     clientRef.current?.stop();
+    if (localReplayRef.current) {
+      cancelAnimationFrame(localReplayRef.current);
+      localReplayRef.current = null;
+    }
     setMeta(null); setPoints([]); setRunning(true); setPaused(false);
+    setCompleted(false);
     setVisibleDistance(0); setDriverPositions({});
     setSmoothPositions({}); setSmoothDistance(0);
     interpRef.current = { prev: {}, next: {}, prevDist: 0, nextDist: 0,
                           tPrev: 0, frameGapMs: 1000 / 30, seeking: false };
-    bufferRef.current = [];
+    bufferRef.current = []; scrubbingRef.current = false;
     setFocusedEvent(null); setDomain(null);
     setHoverProfile(null);
   };
@@ -317,30 +333,101 @@ export default function App() {
 
   // Seek: backward = frontend-only cursor move (data already buffered);
   // forward = ask the backend to fast-emit the skipped frames.
-  const handleSeek = (distance, committed = false) => {
-    const d = Math.max(fullRange[0], Math.min(fullRange[1], distance));
-    if (d <= visibleDistance) {
-      // backward (or in-range): just move the cursor + driver positions
-      setVisibleDistance(d);
+  // Replay the ALREADY-BUFFERED lap locally from a given distance with no
+  // backend fetch. Paces from the stored time_s column (1x real time) and
+  // feeds the same cursor/position/interpolation pipeline as a live replay.
+  const localReplayRef = useRef(null);
+  const replayFrom = (startDist = 0) => {
+    if (!points.length) return;
+    if (localReplayRef.current) cancelAnimationFrame(localReplayRef.current);
+    setCompleted(false); setRunning(true); setPaused(false);
+    setStatus(''); setStatusDismissed(false);
+
+    const drivers = Object.keys(driverMeta);
+    // find the frame index at/after the start distance
+    let startIdx = points.findIndex((p) => (p.distance ?? 0) >= startDist);
+    if (startIdx < 0) startIdx = 0;
+    const tStart = points[startIdx]?.time_s ?? 0;
+    const startWall = performance.now();
+    let i = startIdx;
+
+    const tick = () => {
+      if (pausedRef.current) {
+        localReplayRef.current = requestAnimationFrame(tick);
+        return;
+      }
+      const elapsed = (performance.now() - startWall) / 1000;  // 1x seconds
+      while (i < points.length - 1) {
+        const ts = points[i + 1]?.time_s ?? null;
+        if (ts == null || (ts - tStart) <= elapsed) i++;
+        else break;
+      }
+      const row = points[i];
+      const d = row?.distance ?? 0;
       const pos = {};
-      const idx = points.findIndex((p) => p.distance >= d);
-      const row = points[idx < 0 ? points.length - 1 : idx];
-      for (const drv of Object.keys(driverMeta)) {
+      for (const drv of drivers) {
         pos[drv] = { distance: d,
                      x: row?.[`${drv}_x`] ?? null,
                      y: row?.[`${drv}_y`] ?? null };
       }
       setDriverPositions(pos);
-      // snap interpolation to the seek target (no easing back from old pos)
-      const it = interpRef.current;
-      it.prev = pos; it.next = pos; it.prevDist = d; it.nextDist = d;
-      it.seeking = true;
-      setSmoothPositions(pos); setSmoothDistance(d);
-    } else if (committed) {
-      // forward seek only fires the backend jump on release, not mid-drag
-      clientRef.current?.seek(d);
       setVisibleDistance(d);
+      const it = interpRef.current;
+      it.prev = it.next && Object.keys(it.next).length ? it.next : pos;
+      it.prevDist = it.nextDist || d;
+      it.next = pos; it.nextDist = d;
+      it.tPrev = performance.now(); it.seeking = false;
+
+      if (i >= points.length - 1) {
+        setRunning(false); setCompleted(true);
+        setStatus('Replay complete.');
+        localReplayRef.current = null;
+        return;
+      }
+      localReplayRef.current = requestAnimationFrame(tick);
+    };
+    localReplayRef.current = requestAnimationFrame(tick);
+  };
+  const replayFromStart = () => replayFrom(0);
+
+  // Pause the engine the instant a scrub starts, so live frames stop
+  // overwriting the position the user is dragging to.
+  const handleSeekStart = () => {
+    if (running && !paused) {
+      clientRef.current?.pause();
+      setPaused(true);
     }
+    scrubbingRef.current = true;
+  };
+
+  // Seek works entirely on the locally-buffered points (both directions),
+  // so it's instant and never fights the backend. The engine stays paused.
+  const handleSeek = (distance) => {
+    const d = Math.max(fullRange[0], Math.min(fullRange[1], distance));
+    setVisibleDistance(d);
+    const pos = {};
+    const idx = points.findIndex((p) => p.distance >= d);
+    const row = points[idx < 0 ? points.length - 1 : idx];
+    for (const drv of Object.keys(driverMeta)) {
+      pos[drv] = { distance: d,
+                   x: row?.[`${drv}_x`] ?? null,
+                   y: row?.[`${drv}_y`] ?? null };
+    }
+    setDriverPositions(pos);
+    const it = interpRef.current;
+    it.prev = pos; it.next = pos; it.prevDist = d; it.nextDist = d;
+    it.seeking = true;
+    setSmoothPositions(pos); setSmoothDistance(d);
+  };
+
+  // On release: stay put at the scrubbed position (paused). The user resumes
+  // explicitly. During a live replay we re-sync the backend engine's cursor to
+  // the drop point so Resume continues from here. After completion the whole
+  // lap is buffered, so Resume/Replay use the local player instead.
+  const handleSeekEnd = (distance) => {
+    const d = Math.max(fullRange[0], Math.min(fullRange[1], distance));
+    scrubbingRef.current = false;
+    if (!completed) clientRef.current?.seek(d);
   };
 
   const focusEvent = (ev) => { setFocusedEvent(ev); setSidebarOpen(true); };
@@ -356,7 +443,8 @@ export default function App() {
           onPause={() => { clientRef.current?.pause(); setPaused(true); }}
           onResume={() => { clientRef.current?.resume(); setPaused(false); }}
           onSpeed={(x) => clientRef.current?.setSpeed(x)}
-          running={running} paused={paused}
+          onReplayStart={replayFromStart}
+          running={running} paused={paused} completed={completed}
           collapsed={panelCollapsed} onCollapsedChange={setPanelCollapsed}
         />
         )}
@@ -413,6 +501,7 @@ export default function App() {
               events={visibleEvents} onEventClick={focusEvent}
               focusedEvent={focusedEvent}
               playhead={smoothDistance || visibleDistance} onSeek={handleSeek}
+              onSeekStart={handleSeekStart} onSeekEnd={handleSeekEnd}
               domain={effDomain} setDomain={handleSetDomain}
               fullRange={fullRange}
               hasBaseline={!!meta && meta.baseline_mode !== 'off'}
