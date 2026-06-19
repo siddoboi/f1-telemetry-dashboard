@@ -8,7 +8,8 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 const H = 56;
 
 export default function Minimap({ points, fullRange, domain, onDomain,
-                                  driverMeta, playhead = 0, onSeek }) {
+                                  driverMeta, playhead = 0, onSeek,
+                                  onSeekStart, onSeekEnd }) {
   const svgRef = useRef(null);
   const wrapRef = useRef(null);
   const dragRef = useRef(null);   // {mode:'pan'|'left'|'right', startX, dom0}
@@ -59,6 +60,7 @@ export default function Minimap({ points, fullRange, domain, onDomain,
       if (!seekingRef.current) return;
       seekingRef.current = false;
       onSeek?.(toDist(e.clientX), true);
+      onSeekEnd?.(toDist(e.clientX));
     };
     document.addEventListener('pointermove', onMove);
     document.addEventListener('pointerup', onUp);
@@ -66,12 +68,13 @@ export default function Minimap({ points, fullRange, domain, onDomain,
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onUp);
     };
-  }, [toDist, onSeek]);
+  }, [toDist, onSeek, onSeekEnd]);
 
   const startSeekDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
     seekingRef.current = true;
+    onSeekStart?.();                       // pause the engine while scrubbing
     onSeek?.(toDist(e.clientX));
   };
 

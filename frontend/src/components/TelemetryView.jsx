@@ -15,6 +15,7 @@ export default function TelemetryView({ points, driverMeta, events,
                                         fullRange, hasBaseline = true,
                                         focusedEvent = null,
                                         playhead = 0, onSeek,
+                                        onSeekStart, onSeekEnd,
                                         sectorDistances = null,
                                         running = false }) {
   const [driverMode, setDriverMode] = useState('stacked');
@@ -111,6 +112,7 @@ export default function TelemetryView({ points, driverMeta, events,
         points={points} fullRange={fullRange}
         domain={domain} onDomain={setDomain} driverMeta={driverMeta}
         playhead={playhead} onSeek={onSeek}
+        onSeekStart={onSeekStart} onSeekEnd={onSeekEnd}
       />
       <p className="hint zoom-hint">Ctrl + scroll to zoom · drag the window
       to pan · drag its edges to resize</p>
