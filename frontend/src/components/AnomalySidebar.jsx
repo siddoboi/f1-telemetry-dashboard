@@ -77,7 +77,7 @@ export default function AnomalySidebar({ events, validation, driverMeta,
                   <span>
                     Precision vs rules:{' '}
                     {v.precision_vs_rules != null
-                      ? `${(v.precision_vs_rules * 100).toFixed(0)}%` : '—'}
+                      ? `${(v.precision_vs_rules * 100).toFixed(0)}%` : '-'}
                   </span>
                 </div>
               ))}
