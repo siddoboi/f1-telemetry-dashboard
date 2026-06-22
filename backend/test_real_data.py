@@ -20,7 +20,7 @@ DRIVER  = 'VER'      # driver to score
 # ─────────────────────────────────────────────────────────────────────────
 
 print(f"Loading {YEAR} Round {ROUND} {SESSION}...")
-print("(First run downloads ~200 MB — takes a few minutes. Cached after.)\n")
+print("(First run downloads ~200 MB - takes a few minutes. Cached after.)\n")
 
 ses = load_session(YEAR, ROUND, SESSION)
 
@@ -66,8 +66,8 @@ print(f"  Rules flagged  : {report['rules_flagged']}")
 print(f"  Agreement      : {report['agreement']}")
 prec = report['precision_vs_rules']
 rec  = report['recall_vs_rules']
-print(f"  Precision      : {f'{prec*100:.0f}%' if prec is not None else '—'}")
-print(f"  Recall         : {f'{rec*100:.0f}%' if rec  is not None else '—'}")
+print(f"  Precision      : {f'{prec*100:.0f}%' if prec is not None else '-'}")
+print(f"  Recall         : {f'{rec*100:.0f}%' if rec  is not None else '-'}")
 
 # channel-level stats for a quick sanity check
 print(f"\nChannel ranges (comparison lap):")
