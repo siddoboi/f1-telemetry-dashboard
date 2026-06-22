@@ -1,4 +1,4 @@
-// Cascading selector chain: Year -> Event -> Session -> Drivers (max 5) ->
+// Cascading selector chain: Year -> Event -> Session -> Drivers (max 6) ->
 // Laps -> Baseline. (Live mode removed - OpenF1 live feed requires a paid
 // Sponsor subscription; all data here is historical via FastF1.)
 //
@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { getSchedule, getSessions, getDrivers, getLaps } from '../api/client';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018];
-const MAX_DRIVERS = 5;
+const MAX_DRIVERS = 6;
 const COLLAPSE_KEY = 'pitwall.panelCollapsed';
 
 export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
@@ -254,7 +254,7 @@ export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
 
       {baseline === 'custom' && (
         <div className="custom-baseline">
-          <p className="hint">Baseline lap — can be any driver from any
+          <p className="hint">Baseline lap - can be any driver from any
           session. Loading a different session downloads it on first use,
           which may take a few minutes.</p>
 
