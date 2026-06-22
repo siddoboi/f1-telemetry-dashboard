@@ -41,8 +41,8 @@ export default function HomeView({ onStart, onAbout }) {
         </FeatureCard>
 
         <FeatureCard title="Multi-Driver Comparison"
-          desc="Overlay up to five drivers on synchronized channels — speed,
-                throttle, brake, delta — against a shared baseline.">
+          desc="Overlay up to five drivers on synchronized channels - speed,
+                throttle, brake, delta - against a shared baseline.">
           <MultiDriverChart />
         </FeatureCard>
 
