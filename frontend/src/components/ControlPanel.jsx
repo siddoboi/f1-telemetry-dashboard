@@ -15,8 +15,7 @@ const MAX_DRIVERS = 5;
 const COLLAPSE_KEY = 'pitwall.panelCollapsed';
 
 export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
-                                       onReplayStart,
-                                       running, paused, completed = false,
+                                       running, paused,
                                        collapsed, onCollapsedChange }) {
   const setCollapsed = (v) => {
     localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0');
@@ -156,12 +155,6 @@ export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
                      }} />
               <span>×{speed}</span>
             </div>
-          </div>
-        )}
-        {completed && !running && (
-          <div className="rail-controls">
-            <button className="rail-btn" title="Replay from start"
-                    onClick={onReplayStart}>↺</button>
           </div>
         )}
       </aside>
@@ -332,14 +325,6 @@ export default function ControlPanel({ onStart, onPause, onResume, onSpeed,
                      setSpeedLocal(v); onSpeed(v);
                    }} />
           </label>
-        </div>
-      )}
-
-      {completed && !running && (
-        <div className="replay-controls">
-          <button className="replay-restart" onClick={onReplayStart}>
-            ↺ Replay from start
-          </button>
         </div>
       )}
     </aside>
