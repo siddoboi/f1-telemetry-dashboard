@@ -87,7 +87,7 @@ export default function HistoryView({ onLoadHistory }) {
                   <span className="lap-num mono">{r.driver}
                     {r.schema_version >= 2 && (
                       <span className="lap-v2" title="Full cache: track map,
-                        events and baseline stored — loads instantly and
+                        events and baseline stored - loads instantly and
                         completely">★</span>
                     )}
                   </span>
