@@ -8,7 +8,7 @@ target = '    df["ngear"] = df["ngear"].round().astype(int)'
 fix = '\n    # Normalize brake: FastF1 returns 0/1 boolean in some sessions\n    if df["brake"].max() <= 1.0:\n        df["brake"] = df["brake"] * 100'
 
 if fix in content:
-    print("Fix already present — nothing to do.")
+    print("Fix already present - nothing to do.")
 elif target in content:
     content = content.replace(target, target + fix)
     path.write_text(content)
