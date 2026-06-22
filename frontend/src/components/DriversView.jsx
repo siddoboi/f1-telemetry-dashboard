@@ -65,14 +65,14 @@ export default function DriversView({ driverMeta, sessionRef }) {
             <div className="stat-grid">
               <Stat label="GRID" value={pos(profile.grid_position)} />
               <Stat label="FINISH" value={pos(profile.finish_position)} />
-              <Stat label="FASTEST LAP" value={profile.fastest_lap || '—'}
+              <Stat label="FASTEST LAP" value={profile.fastest_lap || '-'}
                     sub={profile.fastest_lap_number
                       ? `lap ${profile.fastest_lap_number}` : ''} />
               <Stat label="TOP SPEED"
                     value={profile.top_speed_kmh
-                      ? `${Math.round(profile.top_speed_kmh)} km/h` : '—'} />
-              <Stat label="LAPS" value={profile.laps_completed ?? '—'} />
-              <Stat label="PIT STOPS" value={profile.pit_stops ?? '—'} />
+                      ? `${Math.round(profile.top_speed_kmh)} km/h` : '-'} />
+              <Stat label="LAPS" value={profile.laps_completed ?? '-'} />
+              <Stat label="PIT STOPS" value={profile.pit_stops ?? '-'} />
               {profile.points != null &&
                 <Stat label="POINTS" value={profile.points} />}
               {profile.classified_status &&
@@ -85,7 +85,7 @@ export default function DriversView({ driverMeta, sessionRef }) {
   );
 }
 
-const pos = (p) => (p == null ? '—' : `P${p}`);
+const pos = (p) => (p == null ? '-' : `P${p}`);
 
 function Stat({ label, value, sub }) {
   return (
