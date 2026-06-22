@@ -149,7 +149,7 @@ def build_pdf(meta: dict, scored_laps: dict[str, pd.DataFrame]) -> bytes:
     body = ParagraphStyle("body", parent=ss["Normal"], fontSize=8.5,
                           leading=11)
 
-    story = [Paragraph("PIT WALL — Lap Comparison Report", h1)]
+    story = [Paragraph("PIT WALL - Lap Comparison Report", h1)]
 
     # header line
     drivers = meta.get("drivers", {})
@@ -167,7 +167,7 @@ def build_pdf(meta: dict, scored_laps: dict[str, pd.DataFrame]) -> bytes:
     for key, info in drivers.items():
         rows.append([key, str(info.get("lap_number", "")),
                      info.get("lap_time", ""),
-                     f"{info.get('baseline_driver') or '—'} "
+                     f"{info.get('baseline_driver') or '-'} "
                      f"{info.get('baseline_lap_time') or ''}"])
     t = Table(rows, colWidths=[60, 50, 80, 160])
     t.setStyle(_tbl_style)
@@ -180,7 +180,7 @@ def build_pdf(meta: dict, scored_laps: dict[str, pd.DataFrame]) -> bytes:
         rows = [["Driver", "ML flags", "Rule flags", "Agreement",
                  "Precision", "Recall"]]
         for drv, v in validation.items():
-            pct = lambda x: f"{x*100:.0f}%" if x is not None else "—"
+            pct = lambda x: f"{x*100:.0f}%" if x is not None else "-"
             rows.append([drv, v["ml_flagged"], v["rules_flagged"],
                          v["agreement"], pct(v["precision_vs_rules"]),
                          pct(v["recall_vs_rules"])])
@@ -234,7 +234,7 @@ def build_pdf(meta: dict, scored_laps: dict[str, pd.DataFrame]) -> bytes:
         story.append(KeepTogether(block))
 
     story.append(Paragraph(
-        "Unofficial educational project — not associated with Formula 1 or "
+        "Unofficial educational project - not associated with Formula 1 or "
         "the FIA. Data via FastF1/OpenF1.", sub))
     doc.build(story)
     return buf.getvalue()
