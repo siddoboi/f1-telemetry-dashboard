@@ -5,6 +5,7 @@ import { ReplayClient } from './api/client';
 import NavBar from './components/NavBar';
 import ControlPanel from './components/ControlPanel';
 import TelemetryView from './components/TelemetryView';
+import Minimap from './components/Minimap';
 import TrackMapView from './components/TrackMapView';
 import SectorTable from './components/SectorTable';
 import ConditionsView from './components/ConditionsView';
@@ -165,7 +166,7 @@ export default function App() {
       ...Object.values(pos).map((p) => p.distance));
 
     // While the user is scrubbing the playhead, keep ingesting frame data
-    // into `points` (above) but DON'T move the cursor/positions — the drag
+    // into `points` (above) but DON'T move the cursor/positions - the drag
     // owns the playhead position until release.
     if (scrubbingRef.current) return;
 
@@ -459,6 +460,20 @@ export default function App() {
                 sectorTimes={sectorTimes}
                 baselineOwner={meta.baseline_owner}
               />
+            )}
+            {meta && points.length > 0 && (
+              <div className="trackmap-minimap">
+                <Minimap
+                  points={points} fullRange={fullRange}
+                  domain={effDomain} onDomain={handleSetDomain}
+                  driverMeta={driverMeta}
+                  playhead={smoothDistance || visibleDistance}
+                  onSeek={handleSeek}
+                  onSeekStart={handleSeekStart} onSeekEnd={handleSeekEnd}
+                />
+                <p className="hint zoom-hint">Ctrl + scroll to zoom · drag the
+                window to pan · drag its edges to resize</p>
+              </div>
             )}
             </ErrorBoundary>
           </div>
