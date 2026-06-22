@@ -18,7 +18,7 @@ SESSION_META_COLLECTION = "session_meta"
 # --------------------------------------------------------------- replay ----
 DEFAULT_TICK_RATE_HZ = float(os.getenv("TICK_RATE_HZ", "30"))   # frames/sec
 DISTANCE_STEP_M = float(os.getenv("DISTANCE_STEP_M", "5"))      # resample grid
-MAX_DRIVERS = int(os.getenv("MAX_DRIVERS", "5"))                # per comparison
+MAX_DRIVERS = int(os.getenv("MAX_DRIVERS", "6"))                # per comparison
 
 # -------------------------------------------------------------- openf1 ----
 OPENF1_BASE = os.getenv("OPENF1_BASE", "https://api.openf1.org/v1")
