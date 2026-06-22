@@ -14,7 +14,7 @@ new = '''    # discard one-step blips (a single 5 m flag is usually noise)
     return _merge_nearby(events, gap_m=30.0)'''
 
 if "return _merge_nearby" in content:
-    print("Already wired — nothing to do.")
+    print("Already wired - nothing to do.")
 elif old in content:
     content = content.replace(old, new)
     detector.write_text(content)
