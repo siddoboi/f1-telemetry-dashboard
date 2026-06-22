@@ -1,5 +1,5 @@
 """
-OpenF1 API client — historical data only.
+OpenF1 API client - historical data only.
 
 Live car-data polling (LiveEngine) has been removed from this build.
 Live mode requires the OpenF1 Sponsor tier (€9.90/month) and is only
@@ -29,7 +29,7 @@ async def _get(path: str, **params) -> list[dict]:
 
 async def live_session() -> dict | None:
     """Return current OpenF1 session if one is active, else None.
-    Returns None (not an error) on 401/403 — Sponsor tier required for
+    Returns None (not an error) on 401/403 - Sponsor tier required for
     live endpoints on the current season."""
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
