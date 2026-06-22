@@ -41,7 +41,7 @@ export default function SessionView({ driverMeta, sessionRef, onPickLap }) {
     return (
       <EmptyState icon="session"
         title="No session loaded"
-        hint="Load a replay first — the full session lap timeline for those drivers appears here." />
+        hint="Load a replay first - the full session lap timeline for those drivers appears here." />
     );
   }
   if (error) {
