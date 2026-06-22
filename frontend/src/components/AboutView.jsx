@@ -49,8 +49,8 @@ export default function AboutView() {
         </p>
         <p>
           An unsupervised Isolation Forest flags atypical telemetry, and those
-          flags are cross-checked against vehicle-physics rules — braking
-          lock-ups, traction loss, unexpected lifts — to separate genuine
+          flags are cross-checked against vehicle-physics rules - braking
+          lock-ups, traction loss, unexpected lifts - to separate genuine
           driving events from sensor noise. The result is a per-lap consistency
           view with explainable anomalies rather than a black-box score.
         </p>
