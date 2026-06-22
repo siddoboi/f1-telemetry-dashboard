@@ -271,7 +271,7 @@ function WindCard({ speed, direction }) {
         </svg>
       </div>
       <span className="wc-value">
-        {speed != null ? `${speed.toFixed(0)}` : '—'}<small> km/h</small></span>
+        {speed != null ? `${speed.toFixed(0)}` : '-'}<small> km/h</small></span>
     </div>
   );
 }
@@ -340,7 +340,7 @@ function TempChart({ series }) {
 }
 
 function fmt(v, unit) {
-  if (v == null) return '—';
+  if (v == null) return '-';
   return `${typeof v === 'number' ? v.toFixed(1) : v}${unit}`;
 }
 
