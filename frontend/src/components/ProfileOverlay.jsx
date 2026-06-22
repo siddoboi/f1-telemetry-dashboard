@@ -54,11 +54,11 @@ export default function ProfileOverlay({ driver, color, sessionRef,
             <div className="overlay-stats">
               <Stat l="GRID" v={pos(profile.grid_position)} />
               <Stat l="FINISH" v={pos(profile.finish_position)} />
-              <Stat l="FASTEST" v={profile.fastest_lap || '—'} />
+              <Stat l="FASTEST" v={profile.fastest_lap || '-'} />
               <Stat l="TOP SPD" v={profile.top_speed_kmh
-                ? `${Math.round(profile.top_speed_kmh)}` : '—'} />
-              <Stat l="LAPS" v={profile.laps_completed ?? '—'} />
-              <Stat l="PITS" v={profile.pit_stops ?? '—'} />
+                ? `${Math.round(profile.top_speed_kmh)}` : '-'} />
+              <Stat l="LAPS" v={profile.laps_completed ?? '-'} />
+              <Stat l="PITS" v={profile.pit_stops ?? '-'} />
             </div>
           </div>
         </>
@@ -67,7 +67,7 @@ export default function ProfileOverlay({ driver, color, sessionRef,
   );
 }
 
-const pos = (p) => (p == null ? '—' : `P${p}`);
+const pos = (p) => (p == null ? '-' : `P${p}`);
 
 function Stat({ l, v }) {
   return (
