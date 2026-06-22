@@ -194,7 +194,7 @@ def _prepare(req: ReplayRequest) -> dict:
             "drivers": {}, "events": [], "validation": {}}
 
     # circuit geometry: corners, sector boundary distances, DRS zones.
-    # Best-effort — never block a replay if circuit_info is unavailable.
+    # Best-effort - never block a replay if circuit_info is unavailable.
     try:
         ci = f1.get_circuit_info(req.year, req.round, req.session)
         meta["corners"] = ci.get("corners", [])
