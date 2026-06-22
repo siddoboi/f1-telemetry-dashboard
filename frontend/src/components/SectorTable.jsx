@@ -12,11 +12,11 @@ const SECTORS = ['s1', 's2', 's3'];
 const HEADERS = { s1: 'SECTOR 1', s2: 'SECTOR 2', s3: 'SECTOR 3' };
 
 function fmt(v) {
-  if (v == null) return '—';
+  if (v == null) return '-';
   return v.toFixed(3);
 }
 function fmtLap(v) {
-  if (v == null) return '—';
+  if (v == null) return '-';
   const m = Math.floor(v / 60);
   const s = (v % 60).toFixed(3).padStart(6, '0');
   return `${m}:${s}`;
