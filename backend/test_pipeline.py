@@ -54,8 +54,8 @@ print(f"  Rules flagged  : {report['rules_flagged']}")
 print(f"  Agreement      : {report['agreement']}")
 prec = report['precision_vs_rules']
 rec  = report['recall_vs_rules']
-print(f"  Precision      : {f'{prec*100:.0f}%' if prec else '—'}")
-print(f"  Recall         : {f'{rec*100:.0f}%' if rec  else '—'}")
+print(f"  Precision      : {f'{prec*100:.0f}%' if prec else '-'}")
+print(f"  Recall         : {f'{rec*100:.0f}%' if rec  else '-'}")
 
 # assertions
 assert flagged > 0, "FAIL: nothing flagged"
